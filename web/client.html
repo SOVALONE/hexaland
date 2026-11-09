@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#15110d">
+<title>Hexaland</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<style>
+  :root { --bg: #15110d; --panel: #211a13; --panel2: #2a2118; --line: #3d3024;
+    --honey: #f2b43c; --honey-d: #a8742a; --text: #f6ead8; --muted: #a8977f; --bad: #ff7b6b;
+    --tile: #dcc59b; --tile-line: #5a4026; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  body { padding: max(14px, env(safe-area-inset-top)) 16px 24px;
+    background: radial-gradient(ellipse at 50% 0%, #2b1f12 0%, var(--bg) 65%) fixed; user-select: none; }
+  .hex { clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  .wrap { max-width: 440px; margin: 0 auto; }
+  .logo { text-align: center; color: var(--honey); font-weight: 900; letter-spacing: .14em; font-size: 34px;
+    margin: 8px 0 22px; text-shadow: 0 3px 0 #6b4612; }
+  .logo { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .logo img { height: 46px; }
+  body.playing .logo img { height: 28px; }
+  .screen { display: none; }
+  .screen.active { display: block; animation: fade .25s; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } }
+  .card { background: var(--panel); border: 2px solid var(--line); border-radius: 20px; padding: 20px; }
+  label { display: block; color: var(--muted); font-size: 14px; margin: 0 0 8px 2px; }
+  input { width: 100%; font: inherit; font-size: 20px; padding: 14px 16px; border-radius: 14px; user-select: text;
+    border: 2px solid var(--line); background: var(--panel2); color: var(--text); outline: none; }
+  input:focus { border-color: var(--honey); }
+  .colors { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 4px; }
+  .sw { position: relative; aspect-ratio: 1 / 1.08; border: 0; padding: 0; background: none; }
+  .sw .h { position: absolute; inset: 0; transition: transform .15s; box-shadow: inset 0 -7px 0 rgba(0,0,0,.25); }
+  .sw .ring { position: absolute; inset: -5px; background: transparent; }
+  .sw.sel .ring { background: #fff; }
+  .sw.sel .h { transform: scale(.86); }
+  .sw.taken .h { opacity: .18; }
+  .sw.taken::after { content: "✕"; position: absolute; inset: 0; display: grid; place-items: center;
+    color: var(--muted); font-size: 22px; }
+  .gap { height: 20px; }
+  .localnote:empty { display: none; }
+  .localnote { margin-bottom: 12px; padding: 10px 14px; border-radius: 14px; background: #1f3a1f; border: 2px solid #3f7a3f;
+    color: #c9f2c9; font-weight: 700; text-align: center; animation: fade .25s; }
+  .lhint { margin-top: 10px; color: var(--muted); font-size: 14px; text-align: center; line-height: 1.4; }
+  button.main { width: 100%; font: inherit; font-size: 21px; font-weight: 800; letter-spacing: .04em; padding: 16px;
+    border: 0; border-radius: 999px; background: var(--honey); color: #2a1a05; box-shadow: 0 5px 0 #8a5a17; }
+  button.main:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 #8a5a17; }
+  button.main:disabled { opacity: .35; }
+  .row { display: flex; gap: 10px; margin-top: 14px; }
+  button.sec { flex: 1; font: inherit; font-size: 16px; font-weight: 600; padding: 13px; border-radius: 14px;
+    border: 2px solid var(--line); background: var(--panel2); color: var(--text); }
+  .err { color: var(--bad); min-height: 1.3em; margin-top: 12px; text-align: center; font-size: 15px; }
+  .me { text-align: center; padding: 28px 20px; }
+  .me .big { width: 120px; height: 134px; margin: 0 auto 16px; box-shadow: inset 0 -12px 0 rgba(0,0,0,.25); }
+  .me .nm { font-size: 28px; font-weight: 800; }
+  .me .st { color: var(--muted); margin-top: 8px; line-height: 1.4; }
+  .wait-dots::after { content: ""; animation: dots 1.5s steps(4) infinite; }
+  @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+  h3 { margin: 22px 4px 10px; font-size: 14px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+  .others { display: flex; flex-direction: column; gap: 8px; }
+  .prow { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--panel); border-radius: 12px; }
+  .prow .chip { width: 22px; height: 25px; flex: none; }
+  .prow.off { opacity: .45; }
+  .conn { text-align: center; font-size: 13px; color: var(--muted); margin-top: 18px; }
+  .conn.bad { color: var(--bad); }
+
+  /* ---------- ГРА ---------- */
+  body.playing .logo { font-size: 20px; margin: 0 0 10px; }
+  .turnbar { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px; border-radius: 14px;
+    background: var(--panel); border: 2px solid var(--line); font-weight: 700; font-size: 18px; }
+  .turnbar .chip { width: 20px; height: 23px; }
+  .turnbar.mine { background: var(--honey); color: #2a1a05; border-color: var(--honey); animation: glow 1.6s ease-in-out infinite; }
+  @keyframes glow { 50% { box-shadow: 0 0 0 6px rgba(242,180,60,.25); } }
+  .local { position: relative; margin: 10px auto 0; width: 100%; max-width: 380px; aspect-ratio: 1; }
+  #local { width: 100%; height: 100%; display: block; touch-action: manipulation; }
+  .tile-bg { fill: var(--tile); stroke: #8c6a3c; stroke-width: 2; }
+  .tile-line { fill: none; stroke: var(--tile-line); stroke-width: 5.5; stroke-linecap: round; }
+  .tile.dim { opacity: .55; }
+  .tile.mine .tile-bg { stroke: #fff; stroke-width: 4; }
+  .cell-empty { fill: #2b2117; stroke: var(--honey-d); stroke-width: 2; }
+  .cell-void { fill: #0c0907; stroke: #3d3024; stroke-width: 2; stroke-dasharray: 6 6; }
+  .cell-target { fill: rgba(242,180,60,.08); stroke: var(--honey); stroke-width: 3; stroke-dasharray: 10 8; }
+  .trail { fill: none; stroke-width: 6; stroke-linecap: round; opacity: .8; }
+  .preview { fill: none; stroke-width: 9; stroke-linecap: round; stroke-linejoin: round;
+    animation: pv .25s .15s both; }
+  @keyframes pv { from { opacity: 0; } }
+  .preview.bad { stroke-dasharray: 2 14; }
+  .pc { stroke: #fff; stroke-width: 4; }
+  .pc.me { filter: drop-shadow(0 3px 4px rgba(0,0,0,.6)); }
+  .warn { min-height: 1.4em; text-align: center; font-weight: 700; color: var(--bad); margin: 4px 0 2px; font-size: 15px; }
+  .warn.ok { color: var(--muted); font-weight: 500; }
+  .ctrl { display: flex; gap: 10px; align-items: center; }
+  .ctrl .rot { width: 64px; height: 58px; flex: none; border-radius: 16px; border: 2px solid var(--line);
+    background: var(--panel2); color: var(--text); font-size: 28px; line-height: 1; }
+  .ctrl .rot:active { background: var(--line); }
+  .ctrl button.main { flex: 1; width: auto; }
+  .hand { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+  .hcard { border: 2px solid var(--line); background: var(--panel); border-radius: 16px; padding: 6px; aspect-ratio: 1; }
+  .hcard.sel { border-color: var(--honey); background: #33271a; }
+  .hcard svg { width: 100%; height: 100%; display: block; }
+  /* кубик */
+  .die { width: 76px; height: 76px; border-radius: 18px; background: #fff8ea; padding: 11px; display: grid;
+    grid-template: repeat(3, 1fr) / repeat(3, 1fr); box-shadow: 0 6px 0 #b89a6a, 0 12px 24px rgba(0,0,0,.45); }
+  .die i { border-radius: 50%; margin: 3px; }
+  .die i.on { background: #2a1a05; }
+  .die.big { width: 140px; height: 140px; border-radius: 30px; padding: 20px; margin: 22px auto 30px; cursor: pointer; }
+  .die.big i { margin: 5px; }
+  .die.small { width: 34px; height: 34px; border-radius: 8px; padding: 5px; box-shadow: 0 3px 0 #b89a6a; flex: none; }
+  .die.small i { margin: 1px; }
+  .die.rolling { animation: shake .4s ease-in-out infinite; }
+  .die.ask { display: grid; place-items: center; font-size: 64px; font-weight: 900; color: #b89a6a; }
+  .die.ask i { display: none; }
+  .die.dim { opacity: .4; }
+  .die.pop { animation: dpop .45s cubic-bezier(.3,1.8,.6,1); }
+  @keyframes shake { 25% { transform: rotate(-14deg) translateY(-8px); } 75% { transform: rotate(14deg) translateY(-3px); } }
+  @keyframes dpop { from { transform: scale(1.4) rotate(30deg); } }
+  #dice .nm { font-size: 24px; }
+  .prow .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prow .wait { color: var(--muted); font-size: 14px; }
+  .handlbl { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; margin: 14px 4px -8px; }
+
+  /* спецкарти */
+  .badge-bg { fill: #2a1a05; stroke: var(--honey); stroke-width: 3; }
+  .badge text { font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
+  .tile.special .tile-bg { fill: #ecd6ab; stroke: #c98e2a; stroke-width: 3; }
+  .tile.mine.special .tile-bg { stroke: #fff; stroke-width: 4; }
+  .spinfo { margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: #33271a; border: 2px solid var(--honey-d);
+    font-size: 14px; line-height: 1.35; display: none; }
+  .spinfo.show { display: block; }
+  .spinfo b { color: var(--honey); }
+  .pstat { display: flex; justify-content: center; gap: 14px; margin-top: 8px; font-size: 14px; color: var(--muted); min-height: 1.2em; }
+  .pstat b { color: var(--honey); }
+  /* таймер */
+  .turnbar { position: relative; overflow: hidden; }
+  .turnbar .tl { position: absolute; left: 0; bottom: 0; height: 4px; background: rgba(42,26,5,.55); transition: width .25s linear; }
+  .turnbar:not(.mine) .tl { background: var(--honey); }
+  .turnbar.low { background: var(--bad) !important; border-color: var(--bad) !important; color: #fff !important; }
+  .turnbar .secs { font-variant-numeric: tabular-nums; }
+  /* лобі: інфо і команди */
+  .info { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 14px; }
+  .info span { padding: 5px 10px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); font-size: 13px; }
+  .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+  .teams button { padding: 12px 8px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel2);
+    font: inherit; font-weight: 700; color: var(--text); }
+  .teams button.sel { box-shadow: 0 0 0 3px rgba(255,255,255,.08) inset; }
+  .tchip { font-size: 13px; padding: 2px 8px; border-radius: 99px; border: 2px solid; background: #1a140e; font-weight: 700; flex: none; }
+  /* глядач: усе поле */
+  .me.compact { padding: 16px; display: flex; align-items: center; gap: 14px; text-align: left; }
+  .me.compact .big { width: 54px; height: 61px; margin: 0; flex: none; }
+  .me.compact .nm { font-size: 22px; }
+  .me.compact .st { margin-top: 2px; }
+  .fullwrap { margin-top: 12px; background: radial-gradient(ellipse at 50% 50%, #241a10 0%, var(--bg) 80%);
+    border: 2px solid var(--line); border-radius: 18px; aspect-ratio: 1.05; touch-action: pan-y; }
+  #full { width: 100%; height: 100%; display: block; }
+  #full .cell { fill: #2b2117; stroke: var(--honey-d); stroke-width: 2.5; }
+  #full .trails { filter: url(#pglow); }
+  #full .trail { fill: none; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; opacity: .95; }
+  #full .bpiece .body { stroke: #fff; stroke-width: 4; }
+  #full .bpiece text { font-weight: 700; fill: var(--text); paint-order: stroke; stroke: var(--bg); stroke-width: 5px; }
+  #full .bpiece.dead { opacity: .45; }
+  #full .bpiece .ring { fill: none; stroke: var(--honey); stroke-width: 4; animation: pring 1.2s ease-out infinite; }
+  @keyframes pring { from { opacity: .9; } to { opacity: 0; } }
+  .prow.turn { border: 2px solid var(--honey); }
+  .prow.dead { opacity: .45; }
+  .prow .sc { color: var(--honey); font-weight: 800; }
+  /* емодзі */
+  body.hasbar { padding-bottom: 80px; }
+  .ebar { position: fixed; left: 0; right: 0; bottom: 0; display: none; justify-content: center; gap: 2px; z-index: 20;
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom)); background: rgba(21,17,13,.94); border-top: 1px solid var(--line);
+    backdrop-filter: blur(6px); }
+  body.hasbar .ebar { display: flex; }
+  .ebar button { width: 44px; height: 44px; border: 0; background: none; font-size: 27px; border-radius: 12px; padding: 0;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; transition: transform .1s; }
+  .ebar button:active { transform: scale(1.35); background: var(--panel2); }
+  .rfloat { position: fixed; z-index: 40; font-size: 40px; pointer-events: none; animation: rf 2s ease-out forwards;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
+  .rfloat small { display: block; font: 700 11px system-ui, sans-serif; text-align: center; color: var(--text); }
+  @keyframes rf { 0% { opacity: 0; transform: translateY(20px) scale(.5); } 15% { opacity: 1; transform: translateY(0) scale(1.1); }
+    80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-120px); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo"><img src="assets/logo.svg" alt="">HEXALAND</div>
+
+  <!-- 1. Вхід: ім'я + колір -->
+  <section id="join" class="screen">
+    <div class="localnote" id="localNote"></div>
+    <div class="card">
+      <label for="name">Твоє ім'я</label>
+      <input id="name" maxlength="16" autocomplete="nickname" placeholder="Напр. Сова" enterkeyhint="done">
+      <div class="gap"></div>
+      <label>Колір фішки</label>
+      <div class="colors" id="colors"></div>
+      <div class="gap"></div>
+      <button class="main" id="go">Підключитися</button>
+      <div class="err" id="err"></div>
+      <div class="lhint" id="lhint" hidden>Додай усіх гравців по черзі. Коли всі за столом — натисни <b>СТАРТ</b> на столі.</div>
+    </div>
+  </section>
+
+  <!-- 2. Лобі: чекаємо старту -->
+  <section id="wait" class="screen">
+    <div class="card me">
+      <div class="big hex" id="wColor"></div>
+      <div class="nm" id="wName"></div>
+      <div class="st">Ти за столом. Чекаємо, поки на комп'ютері натиснуть «Старт»<span class="wait-dots"></span></div>
+      <div class="info" id="wInfo"></div>
+      <div class="teams" id="teamPick"></div>
+      <div class="row">
+        <button class="sec" id="edit">Змінити</button>
+        <button class="sec" id="leave">Вийти</button>
+      </div>
+    </div>
+    <h3>За столом</h3>
+    <div class="others" id="others"></div>
+  </section>
+
+  <!-- 2б. Кубик: хто ходить першим -->
+  <section id="dice" class="screen">
+    <div class="card me">
+      <div class="nm" id="dTitle"></div>
+      <div class="die big" id="myDie"></div>
+      <button class="main" id="rollBtn">Кинути кубик</button>
+      <div class="st" id="dText"></div>
+    </div>
+    <h3>Кидки</h3>
+    <div class="others" id="dList"></div>
+  </section>
+
+  <!-- 3. Гра: вид від фішки -->
+  <section id="play" class="screen">
+    <div class="turnbar" id="turnbar"></div>
+    <div class="pstat" id="pstat"></div>
+    <div class="local"><svg id="local"></svg></div>
+    <div class="warn" id="warn"></div>
+    <div class="ctrl">
+      <button class="rot" id="rotL" aria-label="Повернути проти годинникової">⟲</button>
+      <button class="main" id="place">Покласти</button>
+      <button class="rot" id="rotR" aria-label="Повернути за годинниковою">⟳</button>
+    </div>
+    <div class="err" id="perr"></div>
+    <div class="handlbl"><span>Твої карти</span><span id="deck"></span></div>
+    <div class="hand" id="hand"></div>
+    <div class="spinfo" id="spinfo"></div>
+  </section>
+
+  <!-- 4. Вибув / кінець гри: видно все поле -->
+  <section id="out" class="screen">
+    <div class="card me compact">
+      <div class="big hex" id="oColor"></div>
+      <div><div class="nm" id="oTitle"></div><div class="st" id="oText"></div></div>
+    </div>
+    <div class="fullwrap"><svg id="full"></svg></div>
+    <h3 id="oListT">Гравці</h3>
+    <div class="others" id="oList"></div>
+  </section>
+
+  <div class="ebar" id="ebar"></div>
+
+  <div class="conn" id="conn">з'єднання…</div>
+</div>
+
+<script src="net.js"></script>
+<script src="hex.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get() { try { return JSON.parse(localStorage.getItem("hexaland") || "{}"); } catch (e) { return {}; } },
+  set(v) { try { localStorage.setItem("hexaland", JSON.stringify(v)); } catch (e) {} },
+};
+let me = NET.local ? {} : store.get();        // {token, id, name, color}
+let state = null, es = null, editing = false, rejoinTried = NET.local, busy = false, picked = me.color || null;
+// гра
+let sel = null;              // вибрана карта
+const rots = {};             // поворот кожної карти (0..5, за годинниковою, у системі поля)
+let shown = { card: null, deg: 0 }, rotAnim = null, lastTurn = null, placing = false;
+let turnDeadline = null, buzzed = null, icons = {}, specInfo = {}, teams = [];
+const pname = id => (state.players.find(p => p.id === id) || {}).name || "?";
+const vibrate = ms => { if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } };
+
+// ---------- зв'язок ----------
+function connect() {
+  if (es) es.close();
+  es = NET.connect(me.token, {
+    onOpen: () => setConn(true),
+    onError: () => setConn(false),
+    onState: st => {
+      state = st;
+      turnDeadline = state.turnLeftMs != null ? Date.now() + state.turnLeftMs : null;
+      render();
+    },
+    onReact: r => showReaction(r),
+  });
+}
+
+// ---------- емодзі-реакції ----------
+function renderEmojiBar(visible) {
+  document.body.classList.toggle("hasbar", visible);
+  const bar = $("ebar");
+  if (!visible || bar.childElementCount) return;
+  for (const em of state.options.reactions) {
+    const b = document.createElement("button");
+    b.textContent = em;
+    b.onclick = () => { vibrate(20); post("/api/react", { token: me.token, emoji: em }); };
+    bar.appendChild(b);
+  }
+}
+function showReaction(r) {
+  const p = state && state.players.find(x => x.id === r.pid);
+  const d = document.createElement("div");
+  d.className = "rfloat";
+  d.innerHTML = `${r.emoji}<small></small>`;
+  d.querySelector("small").textContent = p ? p.name : "";
+  d.style.left = (10 + Math.random() * 75) + "vw";
+  d.style.bottom = (document.body.classList.contains("hasbar") ? 80 : 20) + "px";
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 2100);
+}
+
+// ---------- таймер ходу ----------
+function updateTimer() {
+  const tb = $("turnbar"), tl = tb.querySelector(".tl"), secsEl = tb.querySelector(".secs");
+  const total = state && state.settings && state.settings.timer;
+  if (!state || state.phase !== "game" || !turnDeadline || !total || !tl) { tb.classList.remove("low"); return; }
+  const left = Math.max(0, turnDeadline - Date.now()), secs = Math.ceil(left / 1000);
+  tl.style.width = (100 * left / (total * 1000)) + "%";
+  if (secsEl) secsEl.textContent = ` · ${secs} с`;
+  const mine = state.turn === me.id;
+  tb.classList.toggle("low", mine && secs <= 5);
+  if (mine && secs <= 5 && secs > 0 && buzzed !== secs) { buzzed = secs; vibrate(40); }
+}
+setInterval(updateTimer, 250);
+let connOk = false;
+function setConn(ok) {
+  connOk = ok;
+  $("conn").textContent = (NET.local ? "● гра на одному екрані" : ok ? "● на зв'язку зі столом" : "○ перепідключення…")
+    + (HX.keepAwake.mode ? " · 🔆 екран не згасне" : "");
+  $("conn").className = "conn" + (ok ? "" : " bad");
+}
+
+// ---------- екран не гасне, поки ти в грі ----------
+// браузер дозволяє це лише після дотику, тому вмикаємо на будь-якому натисканні, коли гравець уже за столом
+const keep = HX.keepAwake;
+keep.onChange(() => setConn(connOk));
+document.addEventListener("click", () => { if (me.token && !keep.mode) keep.on(); }, true);
+document.addEventListener("touchend", () => { if (me.token && !keep.mode) keep.on(); }, true);
+const post = (path, body) => NET.post(path, body);
+
+async function join(name, color) {
+  busy = true; $("go").disabled = true;
+  const res = await post("/api/join", { token: me.token, name, color });
+  busy = false; $("go").disabled = false;
+  if (!res.ok) { $("err").textContent = res.error || "Помилка"; return false; }
+  const tokenChanged = res.token !== me.token;
+  me = { token: res.token, id: res.id, name, color };
+  store.set(me);
+  keep.on();   // щойно зайшов за стіл — екран більше не гасне
+  editing = false; $("err").textContent = "";
+  if (tokenChanged) connect(); else render();
+  return true;
+}
+
+$("go").onclick = () => {
+  const name = $("name").value.trim();
+  if (!name) { $("err").textContent = "Введи ім'я"; $("name").focus(); return; }
+  if (!picked) { $("err").textContent = "Вибери колір"; return; }
+  join(name, picked);
+};
+$("name").addEventListener("keydown", e => { if (e.key === "Enter") $("name").blur(); });
+$("edit").onclick = () => { editing = true; render(); };
+$("leave").onclick = async () => {
+  await post("/api/leave", { token: me.token });
+  me = { name: me.name, color: me.color }; store.set(me);
+  keep.off();
+  editing = false; connect();
+};
+
+// ---------- керування картою ----------
+function rotate(d) {
+  if (!sel) return;
+  rots[sel] = (((rots[sel] || 0) + d) % 6 + 6) % 6;
+  $("perr").textContent = "";
+  render();
+}
+$("rotL").onclick = () => rotate(-1);
+$("rotR").onclick = () => rotate(1);
+$("place").onclick = async () => {
+  if (!sel || placing) return;
+  placing = true; $("place").disabled = true;
+  const res = await post("/api/place", { token: me.token, card: sel, rot: rots[sel] || 0 });
+  placing = false;
+  if (!res.ok) $("perr").textContent = res.error || "Помилка";
+  render();
+};
+
+// ---------- рендер ----------
+function show(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id));
+  document.body.classList.toggle("playing", id === "play");
+}
+
+function render() {
+  if (!state) return;
+  const hex = Object.fromEntries(state.colors.map(c => [c.id, c.hex]));
+  icons = Object.fromEntries(state.options.specials.map(s => [s.id, s.icon]));
+  specInfo = Object.fromEntries(state.options.specials.map(s => [s.id, s]));
+  teams = state.options.teams;
+  const mine = me.id && state.players.find(p => p.id === me.id);
+  renderEmojiBar(!!mine && !(editing && state.phase === "lobby"));
+
+  // сервер нас не знає (перезапустили)? — тихо заходимо знову
+  if (!mine && me.token && !rejoinTried && !busy && state.phase === "lobby" && me.name && me.color) {
+    rejoinTried = true; join(me.name, me.color); return;
+  }
+  if (!mine || (editing && state.phase === "lobby")) return renderJoin(hex, mine);
+
+  if (state.phase === "lobby") {
+    $("wColor").style.background = hex[mine.color];
+    $("wName").textContent = mine.name;
+    const st = state.settings, team = st.mode === "team";
+    const mode = state.options.modes.find(m => m.id === st.mode) || {};
+    const size = state.options.sizes.find(s => s.id === st.size) || {};
+    $("wInfo").innerHTML = `<span>${mode.icon} ${mode.name}</span><span>⬡ ${size.name} поле</span>`
+      + `<span>${st.timer ? "⏱ " + st.timer + " с на хід" : "∞ без таймера"}</span>`
+      + (st.specials.length ? `<span>${st.specials.map(k => icons[k]).join(" ")}</span>` : "");
+    const tp = $("teamPick"); tp.innerHTML = "";
+    if (team) for (const t of teams) {
+      const b = document.createElement("button");
+      const on = mine.team === t.id;
+      b.className = on ? "sel" : ""; if (on) b.style.borderColor = t.hex, b.style.color = t.hex, b.style.background = "#1a140e";
+      b.textContent = `${t.icon} ${t.name}`;
+      b.onclick = () => post("/api/team", { token: me.token, team: t.id });
+      tp.appendChild(b);
+    }
+    const box = $("others"); box.innerHTML = "";
+    for (const p of state.players) {
+      const d = document.createElement("div");
+      d.className = "prow" + (p.online ? "" : " off");
+      d.innerHTML = `<div class="chip hex" style="background:${hex[p.color]}"></div><div class="grow"></div>`
+        + (team ? `<span class="tchip" style="border-color:${teams[p.team].hex};color:${teams[p.team].hex}">${teams[p.team].icon} ${teams[p.team].name}</span>` : "");
+      d.querySelector(".grow").textContent = p.name + (p.id === me.id ? " (ти)" : "");
+      box.appendChild(d);
+    }
+    show("wait");
+  } else if (state.phase === "dice") {
+    renderDice(hex, mine);
+  } else if (state.phase === "over" || !mine.alive) {
+    renderOut(hex, mine);
+  } else {
+    renderPlay(hex, mine);
+  }
+}
+
+// ---------- кубик ----------
+let rollingUntil = 0, myShownRoll = null;
+async function doRoll() {
+  const d = state && state.dice;
+  if (!d || d.first || !d.pending.includes(me.id) || me.id in d.rolls || Date.now() < rollingUntil) return;
+  rollingUntil = Date.now() + 750;
+  if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+  render();
+  const res = await post("/api/roll", { token: me.token });
+  setTimeout(() => { if (!res.ok) $("dText").textContent = res.error || "Помилка"; render(); }, Math.max(0, rollingUntil - Date.now()));
+}
+$("rollBtn").onclick = doRoll;
+$("myDie").onclick = doRoll;
+setInterval(() => {
+  const el = $("myDie");
+  if (el.classList.contains("rolling")) el.innerHTML = HX.dieFace(1 + Math.floor(Math.random() * 6));
+}, 100);
+
+function renderDice(hex, mine) {
+  const d = state.dice;
+  const name = id => (state.players.find(p => p.id === id) || {}).name || "?";
+  const inRound = d.pending.includes(me.id), rolled = me.id in d.rolls, hist = d.all[me.id] || [];
+  const rolling = Date.now() < rollingUntil;
+  const canRoll = !d.first && inRound && !rolled && !rolling;
+  const die = $("myDie");
+  const last = hist[hist.length - 1];
+  const key = d.round + ":" + last;
+  die.className = "die big" + (rolling ? " rolling" : canRoll ? " ask" : (myShownRoll !== key ? " pop" : "")) + (!inRound && !d.first ? " dim" : "");
+  if (rolling) die.innerHTML = HX.dieFace(1 + Math.floor(Math.random() * 6));   // далі грані міняє таймер
+  else if (canRoll) die.innerHTML = "?";
+  else { die.innerHTML = HX.dieFace(last || 1); myShownRoll = key; }
+
+  $("rollBtn").hidden = !canRoll && !rolling;
+  $("rollBtn").disabled = rolling;
+  let title, text;
+  if (d.first) {
+    title = d.first === me.id ? "Ти ходиш першим! 🎉" : "Першим ходить " + name(d.first);
+    text = "Гра починається…";
+  } else if (inRound && !rolled) {
+    title = d.round > 1 ? "Нічия! Перекинь кубик" : "Хто ходить першим?";
+    text = d.round > 1 ? `У вас однаково по ${d.tieValue}` : "Натисни на кубик або на кнопку";
+  } else if (inRound) {
+    title = "Ти викинув " + last; text = "Чекаємо, поки кинуть інші…";
+  } else {
+    title = "Ти викинув " + last; text = "Перекидають: " + d.tied.map(name).join(", ");
+  }
+  if (rolling) { title = "Кидаємо…"; text = ""; }
+  $("dTitle").textContent = title;
+  $("dText").textContent = text;
+
+  const box = $("dList"); box.innerHTML = "";
+  for (const p of state.players) {
+    const h = d.all[p.id] || [], waiting = d.pending.includes(p.id) && !(p.id in d.rolls) && !d.first;
+    const row = document.createElement("div");
+    row.className = "prow";
+    row.innerHTML = `<div class="chip hex" style="background:${hex[p.color]}"></div><div class="grow"></div>` +
+      (waiting || !h.length ? `<div class="wait">кидає…</div>` : `<div class="die small">${HX.dieFace(h[h.length - 1])}</div>`);
+    row.querySelector(".grow").textContent = p.name + (p.id === me.id ? " (ти)" : "") + (d.first === p.id ? " — перший" : "");
+    box.appendChild(row);
+  }
+  show("dice");
+}
+
+function renderOut(hex, mine) {
+  $("oColor").style.background = hex[mine.color];
+  const mode = state.settings.mode;
+  const names = state.winners.map(pname);
+  if (state.phase === "over") {
+    const won = state.winners.includes(me.id);
+    if (mode === "team" && state.winTeam != null) {
+      const t = teams[state.winTeam];
+      $("oTitle").textContent = won ? "Твоя команда перемогла! 🏆" : "Перемогла команда " + t.icon + " " + t.name;
+      $("oText").textContent = names.join(", ");
+    } else {
+      $("oTitle").textContent = won ? (names.length > 1 ? "Нічия!" : "Ти переміг! 🏆") : "Гру завершено";
+      $("oText").textContent = (won && names.length === 1) ? (mode === "points" ? "У тебе найбільше очок." : "Ти залишився на полі останнім.")
+        : names.length ? (names.length > 1 ? "Ділять перемогу: " : "Переміг: ") + names.join(", ") : "Нічия — ніхто не вижив.";
+    }
+  } else {
+    const cur = state.players.find(p => p.id === state.turn);
+    $("oTitle").textContent = "Тебе вибито 💥";
+    $("oText").textContent = "Дивись, як грають інші" + (cur ? ` · ходить ${cur.name}` : "");
+  }
+  // все поле, як на столі
+  HX.renderBoard($("full"), state, hex, 52);
+  $("full").insertAdjacentHTML("afterbegin", `<defs><filter id="pglow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`);
+  const list = $("oList"); list.innerHTML = "";
+  const rows = mode === "points" ? [...state.players].sort((a, b) => b.score - a.score) : state.players;
+  for (const p of rows) {
+    const d = document.createElement("div");
+    d.className = "prow" + (p.alive ? "" : " dead") + (p.id === state.turn ? " turn" : "");
+    d.innerHTML = `<div class="chip hex" style="background:${hex[p.color]}"></div><div class="grow"></div>`
+      + (mode === "team" ? `<span class="tchip" style="border-color:${teams[p.team].hex};color:${teams[p.team].hex}">${teams[p.team].icon}</span>` : "")
+      + (mode === "points" ? `<span class="sc">⭐ ${p.score}</span>` : `<span class="wait">${p.alive ? (p.id === state.turn ? "ходить" : "у грі") : "вибув"}</span>`);
+    d.querySelector(".grow").textContent = p.name + (p.id === me.id ? " (ти)" : "");
+    list.appendChild(d);
+  }
+  show("out");
+}
+
+function renderPlay(hex, mine) {
+  const R = state.boardRadius, S = 60;
+  const board = {};
+  for (const t of state.board) board[t.q + "," + t.r] = { card: t.card, rot: t.rot };
+  const hand = state.hand || [];
+  if (!hand.includes(sel)) sel = hand[0] || null;
+  const myTurn = state.turn === me.id;
+  const turnKey = state.turn + ":" + (state.lastMove ? state.lastMove.seq : 0);
+  if (myTurn && lastTurn !== turnKey) vibrate(120);
+  lastTurn = turnKey;
+  const mode = state.settings.mode, team = mode === "team";
+
+  // хто ходить
+  const cur = state.players.find(p => p.id === state.turn);
+  const tb = $("turnbar");
+  tb.className = "turnbar" + (myTurn ? " mine" : "");
+  tb.innerHTML = (myTurn ? `<span>Твій хід!<span class="secs"></span></span>` : `<div class="chip hex"></div><span class="who"></span><span class="secs"></span>`)
+    + `<div class="tl"></div>`;
+  if (!myTurn && cur) { tb.querySelector(".chip").style.background = hex[cur.color]; tb.querySelector(".who").textContent = "Хід: " + cur.name; }
+  const ps = [];
+  if (mode === "points") ps.push(`⭐ Твої очки: <b>${mine.score}</b>`);
+  if (team) ps.push(`Команда: <b>${teams[mine.team].icon} ${teams[mine.team].name}</b>`);
+  const lm = state.lastMove;
+  if (lm && lm.effect && (lm.effect.with === me.id || lm.effect.from === me.id) && lm.seq !== renderPlay.seenFx) {
+    renderPlay.seenFx = lm.seq; vibrate([60, 40, 60]);
+    $("perr").textContent = lm.effect.kind === "swap" ? `🔄 ${pname(lm.pid)} обміняв(ла)ся з тобою картами!` : `🦝 ${pname(lm.pid)} поцупив(ла) твою карту!`;
+  }
+  $("pstat").innerHTML = ps.join(" · ");
+  updateTimer();
+
+  // ---- вид від фішки: фішка внизу, перед нею сота для карти
+  const pos = mine.pos, view = 90 - 60 * (pos.i >> 1);
+  const svg = $("local"); svg.innerHTML = "";
+  svg.setAttribute("viewBox", `${-2.6 * S} ${-2.6 * S} ${5.2 * S} ${5.2 * S}`);
+  const defs = HX.el("defs", {}, svg);
+  const rg = HX.el("radialGradient", { id: "fg" }, defs);
+  HX.el("stop", { offset: "62%", "stop-color": "#fff" }, rg);
+  HX.el("stop", { offset: "100%", "stop-color": "#000" }, rg);
+  const mask = HX.el("mask", { id: "fade" }, defs);
+  HX.el("rect", { x: -2.6 * S, y: -2.6 * S, width: 5.2 * S, height: 5.2 * S, fill: "url(#fg)" }, mask);
+  const root = HX.el("g", { transform: `rotate(${view})` }, svg);
+  const around = HX.el("g", { mask: "url(#fade)" }, root);
+  const vis = new Set(["0,0", ...HX.DIRS.map(d => d.join(","))]);
+
+  HX.DIRS.forEach(([dq, dr]) => {
+    const q = pos.q + dq, r = pos.r + dr, [x, y] = HX.cellXY(dq, dr, S);
+    if (!HX.inBoard(q, r, R)) HX.el("polygon", { points: HX.hexPoints(x, y, S), class: "cell-void" }, around);
+    else if (board[q + "," + r]) {
+      const t = board[q + "," + r], k = state.specials[t.card];
+      HX.drawTile(around, x, y, S, HX.rotMatch(state.cards[t.card], t.rot), "dim", k && icons[k], -view);
+    }
+    else HX.el("polygon", { points: HX.hexPoints(x, y, S), class: "cell-empty" }, around);
+  });
+  // сліди гравців поруч
+  for (const p of state.players) for (const [q, r, a, b] of p.trail) {
+    const k = (q - pos.q) + "," + (r - pos.r);
+    if (!vis.has(k)) continue;
+    const [x, y] = HX.cellXY(q - pos.q, r - pos.r, S);
+    HX.el("path", { d: HX.segPath(a, b, S, x, y), class: "trail", stroke: hex[p.color] }, around);
+  }
+  // карта в руці — перед фішкою
+  const deg = sel ? (shown.card === sel ? shown.deg + (((rots[sel] || 0) * 60 - shown.deg) % 360 + 540) % 360 - 180 : (rots[sel] || 0) * 60) : 0;
+  const cg = HX.el("g", {}, root);
+  const selKind = sel && state.specials[sel];
+  if (sel) {
+    HX.drawTile(cg, 0, 0, S, state.cards[sel], "mine", selKind && icons[selKind], -(view + deg));
+    const from = shown.card === sel ? shown.deg : deg;
+    cancelAnimationFrame(rotAnim);
+    const t0 = performance.now();
+    (function step(now) {
+      const k = Math.min(1, (now - t0) / 180), e = 1 - Math.pow(1 - k, 3);
+      cg.setAttribute("transform", `rotate(${from + (deg - from) * e})`);
+      if (k < 1) rotAnim = requestAnimationFrame(step);
+    })(t0);
+    shown = { card: sel, deg };
+    cg.onclick = () => rotate(1);
+  } else {
+    HX.el("polygon", { points: HX.hexPoints(0, 0, S), class: "cell-target" }, cg);
+  }
+  // прев'ю: куди поведе лінія
+  let warn = "", warnOk = false;
+  if (sel) {
+    const tmp = Object.assign({}, board, { [pos.q + "," + pos.r]: { card: sel, rot: rots[sel] || 0 } });
+    const res = HX.trace(tmp, state.cards, R, pos.q, pos.r, pos.i);
+    const pv = HX.el("g", {}, root);
+    for (const [q, r, a, b] of res.segs) {
+      const k = (q - pos.q) + "," + (r - pos.r);
+      if (!vis.has(k)) continue;
+      const [x, y] = HX.cellXY(q - pos.q, r - pos.r, S);
+      HX.el("path", { d: HX.segPath(a, b, S, x, y), class: "preview" + (res.alive ? "" : " bad"), stroke: hex[mine.color] }, pv);
+    }
+    const hit = state.players.find(p => p.id !== me.id && p.alive && !(p.pos.q === pos.q && p.pos.r === pos.r)
+      && p.pos.q === res.pos.q && p.pos.r === res.pos.r && p.pos.i === res.pos.i);
+    const ally = hit && team && hit.team === mine.team;
+    const pts = mode === "points" ? ` (+${res.segs.length} ⭐)` : "";
+    if (!res.alive && selKind === "portal") { warnOk = true; warn = "🌀 Вилетиш, але телепорт врятує"; }
+    else if (!res.alive) warn = "⚠ Так ти вилетиш за край поля";
+    else if (hit && !ally) warn = "⚠ Зіткнешся з " + hit.name + " — вибудете обоє";
+    else if (ally) { warnOk = true; warn = "🤝 Зустрінеш союзника " + hit.name + " — це безпечно"; }
+    else { warnOk = true; warn = (res.segs.length > 1 ? `Пройдеш через ${res.segs.length} карти` : "Натисни на карту, щоб повернути") + pts; }
+  }
+  const si = $("spinfo");
+  si.classList.toggle("show", !!selKind);
+  if (selKind) si.innerHTML = `<b>${specInfo[selKind].icon} ${specInfo[selKind].name}.</b> ${specInfo[selKind].desc}`;
+  // інші фішки поруч
+  for (const p of state.players) {
+    if (p.id === me.id || !p.alive || !p.pos) continue;
+    const k = (p.pos.q - pos.q) + "," + (p.pos.r - pos.r);
+    if (!vis.has(k)) continue;
+    const [cx, cy] = HX.cellXY(p.pos.q - pos.q, p.pos.r - pos.r, S), [x, y] = HX.pointLocal(p.pos.i, S);
+    HX.el("circle", { cx: cx + x, cy: cy + y, r: 10, fill: hex[p.color], class: "pc" }, root);
+  }
+  // моя фішка
+  const [mx, my] = HX.pointLocal(pos.i, S);
+  HX.el("circle", { cx: mx, cy: my, r: 15, fill: hex[mine.color], class: "pc me" }, root);
+
+  $("warn").textContent = warn;
+  $("warn").className = "warn" + (warnOk ? " ok" : "");
+  $("place").disabled = !myTurn || !sel || placing;
+  $("place").textContent = myTurn ? "Покласти" : "Чекай свого ходу";
+  $("rotL").disabled = $("rotR").disabled = !sel;
+  $("deck").textContent = `у колоді: ${state.deckCount}`;
+
+  // рука
+  const hb = $("hand"); hb.innerHTML = "";
+  for (const id of hand) {
+    const b = document.createElement("button");
+    b.className = "hcard" + (id === sel ? " sel" : "");
+    const s = HX.el("svg", { viewBox: `${-1.05 * S} ${-1.05 * S} ${2.1 * S} ${2.1 * S}` }, b);
+    const g = HX.el("g", { transform: `rotate(${view})` }, s);
+    const k = state.specials[id];
+    HX.drawTile(g, 0, 0, S, HX.rotMatch(state.cards[id], rots[id] || 0), "", k && icons[k], -view);
+    b.onclick = () => { if (sel === id) rotate(1); else { sel = id; $("perr").textContent = ""; render(); } };
+    hb.appendChild(b);
+  }
+  show("play");
+}
+
+function renderJoin(hex, mine) {
+  const nameEl = $("name");
+  if (!nameEl.value && me.name) nameEl.value = me.name;
+  const taken = new Set(state.players.filter(p => p.id !== me.id).map(p => p.color));
+  if (picked && taken.has(picked)) picked = null;
+  const box = $("colors"); box.innerHTML = "";
+  for (const c of state.colors) {
+    const b = document.createElement("button");
+    b.className = "sw" + (c.id === picked ? " sel" : "") + (taken.has(c.id) ? " taken" : "");
+    b.title = c.name; b.disabled = taken.has(c.id);
+    b.innerHTML = `<div class="ring hex"></div><div class="h hex" style="background:${c.hex}"></div>`;
+    b.onclick = () => { picked = c.id; $("err").textContent = ""; renderJoin(hex, mine); };
+    box.appendChild(b);
+  }
+  const inGame = state.phase !== "lobby" && !mine;
+  $("go").textContent = mine ? "Зберегти" : NET.local ? "Додати гравця" : "Підключитися";
+  $("lhint").hidden = !NET.local;
+  $("go").disabled = inGame || busy;
+  if (inGame) $("err").textContent = "Гра вже йде — зачекай наступної";
+  else if ($("err").textContent === "Гра вже йде — зачекай наступної") $("err").textContent = "";
+  show("join");
+}
+
+// гра на одному екрані: «директор» (index.html) перемикає, чия зараз панель
+window.hexSetMe = (m, note) => {
+  me = m || {}; rejoinTried = true; editing = false; sel = null; shown = { card: null, deg: 0 };
+  picked = me.color || null; $("err").textContent = ""; $("perr").textContent = "";
+  if (!me.token) $("name").value = "";
+  $("localNote").textContent = note || "";
+  window.scrollTo(0, 0);
+  connect();
+};
+window.hexWho = () => me;
+
+connect();
+</script>
+</body>
+</html>

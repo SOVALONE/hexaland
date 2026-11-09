@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#15110d">
+<title>Hexaland — кімната</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<style>
+  html, body { margin: 0; height: 100%; background: #15110d; overflow: hidden; }
+  #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+  .fail { position: fixed; inset: 0; display: none; place-items: center; text-align: center; padding: 30px; color: #f6ead8;
+    font: 18px/1.5 "Segoe UI", system-ui, sans-serif; background: #15110d; z-index: 5; }
+  .fail.show { display: grid; }
+  .fail a { color: #f2b43c; font-weight: 700; }
+</style>
+<!-- рушій гри працює тут, на пристрої хоста -->
+<script src="vendor/peerjs.min.js"></script>
+<script src="p2p.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<iframe id="app" title="Hexaland" allow="fullscreen; autoplay; screen-wake-lock; clipboard-write; web-share"></iframe>
+<div class="fail" id="fail"><div><div id="failT"></div><p><a href="./">← На головну</a></p></div></div>
+<script>
+(function () {
+  const params = new URLSearchParams(location.search);
+  const kind = params.get("as") === "phone" ? "phone" : "table";
+  const SAVE = "hexaland-host";
+  const G = HEXLOCAL.game;
+
+  // код кімнати: з адреси (після перезавантаження) або новий
+  let code = HEXP2P.normCode(params.get("code"));
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(SAVE) || "null"); } catch (e) {}
+  if (code && saved && saved.code === code && saved.kind === kind && Date.now() - saved.t < 6 * 3600e3) {
+    try { G.load(saved.snap); } catch (e) { console.error("не вдалося відновити гру", e); }
+  }
+  if (!code) {
+    code = HEXP2P.newCode();
+    params.set("as", kind); params.set("code", code);
+    history.replaceState(null, "", "host.html?" + params.toString());
+  }
+  const base = new URL("./", location.href).href;
+  const joinUrl = base + "?r=" + code;
+  G.room = code; G.joinUrl = joinUrl; G.hostKind = kind;
+
+  // стан збереження — щоб після перезавантаження сторінки гра продовжилась
+  let saveT = null;
+  G.onChange = () => {
+    if (saveT) return;
+    saveT = setTimeout(() => {
+      saveT = null;
+      try { localStorage.setItem(SAVE, JSON.stringify({ code, kind, t: Date.now(), snap: G.snapshot() })); } catch (e) {}
+    }, 400);
+  };
+
+  const listeners = [];
+  window.HEXHOST = {
+    code, kind, joinUrl, base, status: "connecting", info: "",
+    onStatus(fn) { listeners.push(fn); try { fn(this.status, this.info); } catch (e) {} },
+  };
+  HEXP2P.startHost(code, HEXLOCAL, (s, info) => {
+    HEXHOST.status = s; HEXHOST.info = info || "";
+    listeners.forEach(fn => { try { fn(s, info || ""); } catch (e) {} });
+    if (s === "taken") {
+      document.getElementById("failT").textContent = "Кімната " + code + " уже відкрита на іншому пристрої або вкладці.";
+      document.getElementById("fail").classList.add("show");
+    }
+    if (s === "error") {
+      document.getElementById("failT").textContent = info || "Не вдалося запустити кімнату.";
+      document.getElementById("fail").classList.add("show");
+    }
+  });
+
+  // не закрити кімнату випадково
+  window.addEventListener("beforeunload", e => {
+    if (G.players.size && G.phase !== "lobby") { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  document.getElementById("app").src = kind === "phone" ? "client.html" : "table.html";
+})();
+</script>
+</body>
+</html>

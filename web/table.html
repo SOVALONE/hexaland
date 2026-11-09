@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hexaland — стіл</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="icon" href="assets/hexaland.ico" sizes="any">
+<style>
+  :root {
+    --bg: #15110d; --panel: #211a13; --panel2: #2a2118; --line: #3d3024;
+    --honey: #f2b43c; --honey-d: #a8742a; --text: #f6ead8; --muted: #a8977f;
+    --tile: #dcc59b; --tile-line: #5a4026; --bad: #ff7b6b;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+  body { overflow: hidden; }
+  .screen { position: absolute; inset: 0; display: none; }
+  .screen.active { display: flex; }
+  .hex { clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  button { font: inherit; cursor: pointer; color: inherit; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } }
+
+  /* ---------- ЛОБІ ---------- */
+  #lobby { flex-direction: column; align-items: center; justify-content: safe center; gap: min(22px, 2.6vh);
+    padding: 22px 36px; overflow-y: auto; background: radial-gradient(ellipse at 50% 30%, #2b1f12 0%, var(--bg) 70%); }
+  #lobby .bgcomb { position: fixed; inset: 0; opacity: .07; pointer-events: none; }
+  .logo { margin: 0; font-size: clamp(40px, min(7.5vw, 10vh), 112px); line-height: 1; font-weight: 900; letter-spacing: .14em;
+    color: var(--honey); text-shadow: 0 6px 0 #6b4612, 0 18px 40px rgba(242,180,60,.25); }
+  .logorow { display: flex; align-items: center; gap: clamp(14px, 2vw, 26px); position: relative; }
+  .logorow .mark { height: clamp(48px, min(7.5vw, 11vh), 124px); filter: drop-shadow(0 10px 24px rgba(242,180,60,.3));
+    animation: mark-in .7s cubic-bezier(.3,1.5,.6,1); }
+  @keyframes mark-in { from { transform: rotate(-60deg) scale(.4); opacity: 0; } }
+  .lgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 430px); gap: 26px; width: min(1300px, 100%); position: relative; }
+  .lcol { display: flex; flex-direction: column; gap: 20px; align-items: center; min-width: 0; }
+  @media (max-width: 760px) { .lgrid { grid-template-columns: 1fr; } }
+  .join { display: flex; align-items: center; gap: 24px; }
+  .join .lbl { color: var(--muted); font-size: 16px; margin-bottom: 10px; line-height: 1.35; }
+  .join .lbl b { color: var(--text); font-size: 19px; }
+  .qrbox { padding: 9px; border-radius: 16px; background: #fff; box-shadow: 0 0 0 4px var(--honey), 0 14px 40px rgba(0,0,0,.5); flex: none; }
+  .qr { display: block; width: clamp(110px, 19vh, 190px); height: clamp(110px, 19vh, 190px); image-rendering: pixelated; }
+  .join .url { font: 700 clamp(26px, 3.2vw, 46px)/1.1 Consolas, "Cascadia Mono", monospace; color: #fff;
+    background: var(--panel); border: 2px solid var(--line); padding: 12px 24px; border-radius: 16px; display: inline-block; }
+  .players { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+  .pcard { position: relative; width: 124px; padding: 16px 8px 12px; border-radius: 18px; background: var(--panel);
+    border: 2px solid var(--line); text-align: center; animation: pop .35s cubic-bezier(.3,1.6,.6,1); }
+  .pcard .chip { width: 54px; height: 61px; margin: 0 auto 10px; box-shadow: inset 0 -8px 0 rgba(0,0,0,.25); }
+  .pcard .nm { font-weight: 700; font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pcard .st { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .pcard.off { opacity: .4; }
+  .pcard.empty { background: transparent; border-style: dashed; animation: none; }
+  .pcard.empty .chip { background: var(--line); opacity: .5; }
+  .pcard.empty .nm { color: var(--muted); font-weight: 400; font-size: 14px; }
+  .pcard .teamb { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 3px 10px; border-radius: 999px;
+    font-size: 13px; font-weight: 800; background: #1a140e; border: 2px solid; white-space: nowrap; }
+  .localbox { text-align: center; background: var(--panel); border: 2px solid var(--line); border-radius: 20px; padding: 18px 26px; }
+  .localbox b { font-size: 20px; }
+  .localbox p { color: var(--muted); margin: 6px 0 14px; line-height: 1.4; }
+  .btn-bot { font-size: 18px; font-weight: 800; padding: 12px 26px; border-radius: 999px; border: 2px solid var(--honey);
+    background: var(--panel2); color: var(--honey); }
+  .btn-bot:hover { background: #3a2b18; }
+  .pcard .kick { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; border: 0;
+    background: var(--panel2); color: var(--muted); font-size: 14px; line-height: 1; padding: 0; }
+  .pcard .kick:hover { background: #4a1d17; color: #fff; }
+  .startbox { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .btn-start { font-size: 28px; font-weight: 900; letter-spacing: .1em; padding: 16px 66px; border-radius: 999px; border: 0;
+    background: var(--honey); color: #2a1a05; box-shadow: 0 6px 0 #8a5a17; transition: transform .1s, box-shadow .1s; }
+  .btn-start:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 2px 0 #8a5a17; }
+  .btn-start:disabled { opacity: .3; cursor: not-allowed; }
+  .hint { color: var(--muted); font-size: 15px; min-height: 1.2em; }
+
+  /* налаштування */
+  .settings { background: var(--panel); border: 2px solid var(--line); border-radius: 22px; padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 12px; align-self: start; }
+  .sect h4 { margin: 0 0 7px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+  .opt { border: 2px solid var(--line); background: var(--panel2); border-radius: 12px; padding: 8px 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px; font-weight: 700; font-size: 14px; }
+  .opt:hover { border-color: var(--honey-d); }
+  .opt.sel { border-color: var(--honey); background: #3a2b18; }
+  .opt small { font-weight: 500; color: var(--muted); font-size: 12px; }
+  .opt .ic { font-size: 20px; line-height: 1; }
+  .opt svg { width: 34px; height: 34px; }
+  .opt svg polygon { fill: #4a3a28; stroke: var(--bg); stroke-width: .8; }
+  .opt.sel svg polygon { fill: var(--honey); }
+  .mdesc { font-size: 13px; color: var(--muted); margin-top: 6px; min-height: 1.2em; }
+  .spgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .sp { display: flex; align-items: center; gap: 8px; text-align: left; border: 2px solid var(--line); background: var(--panel2);
+    border-radius: 12px; padding: 6px 8px; font-size: 14px; font-weight: 600; }
+  .sp .ic { font-size: 18px; width: 24px; text-align: center; flex: none; }
+  .sp .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sp .sw { width: 30px; height: 18px; border-radius: 99px; background: #4a3a28; position: relative; flex: none; transition: background .15s; }
+  .sp .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #a8977f; transition: transform .15s, background .15s; }
+  .sp.on { border-color: var(--honey-d); }
+  .sp.on .sw { background: var(--honey); }
+  .sp.on .sw::after { transform: translateX(12px); background: #fff; }
+  .sp:not(.on) .ic, .sp:not(.on) .nm { opacity: .55; }
+  .sub2 { font-size: 12px; color: var(--muted); margin: 6px 0 5px 2px; }
+
+  /* панель кнопок угорі праворуч */
+  .tools { position: fixed; top: 12px; right: 14px; display: flex; gap: 8px; z-index: 30; }
+  .iconbtn { width: 48px; height: 48px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel2);
+    color: var(--text); display: grid; place-items: center; padding: 0; }
+  .iconbtn:hover, .iconbtn.open { border-color: var(--honey); }
+  .iconbtn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .menu { position: absolute; top: 58px; right: 0; min-width: 250px; padding: 6px; display: none;
+    background: var(--panel); border: 2px solid var(--line); border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,.5); }
+  .menu.open { display: block; animation: pop .18s ease-out; }
+  .menu button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 14px;
+    border: 0; border-radius: 10px; background: none; font-size: 16px; font-weight: 600; }
+  .menu button:hover { background: var(--panel2); }
+  .menu button[hidden] { display: none; }
+  .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 8px; }
+  .menu .ic { width: 22px; text-align: center; color: var(--honey); }
+
+  /* ---------- ГРА ---------- */
+  #game { flex-direction: column; background: radial-gradient(ellipse at 50% 55%, #241a10 0%, var(--bg) 75%); }
+  .topbar { position: relative; display: flex; align-items: center; gap: 14px; min-height: 72px; padding: 10px 130px 10px 20px;
+    background: var(--panel); border-bottom: 2px solid var(--line); }
+  .topbar .brand { display: flex; align-items: center; gap: 10px; color: var(--honey); font-weight: 900; letter-spacing: .14em; font-size: 20px; white-space: nowrap; }
+  .topbar .brand img { height: 36px; }
+  .topbar .sub { color: var(--muted); font-size: 14px; white-space: nowrap; text-align: right; line-height: 1.35; }
+  .tbar { position: absolute; left: 0; bottom: -2px; height: 4px; background: var(--honey); border-radius: 0 4px 4px 0; transition: width .25s linear; }
+  .tbar.low { background: var(--bad); }
+  .boardwrap { flex: 1; position: relative; min-height: 0; overflow: hidden; }
+  #board { width: 100%; height: 100%; display: block; }
+  #board.shake { animation: bshake .5s; }
+  @keyframes bshake { 20% { transform: translate(-8px, 4px); } 40% { transform: translate(7px, -5px); } 60% { transform: translate(-5px, -3px); } 80% { transform: translate(4px, 3px); } }
+  .plist { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; flex: 1; }
+  .prow { display: flex; align-items: center; gap: 9px; padding: 7px 12px; background: var(--panel2); max-width: 250px;
+    border-radius: 12px; border: 2px solid transparent; transition: border-color .2s, background .2s; }
+  .prow.turn { border-color: var(--honey); background: #33271a; }
+  .prow.turn.low { border-color: var(--bad); animation: lowp .5s ease-in-out infinite alternate; }
+  @keyframes lowp { to { background: #4a1d17; } }
+  .prow .chip { width: 26px; height: 30px; flex: none; }
+  .prow .nm { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prow .tm { font-size: 14px; }
+  .prow .tag { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .prow .sc { font-weight: 800; color: var(--honey); white-space: nowrap; }
+  .prow.turn .tag { color: var(--honey); font-weight: 700; }
+  .prow .dot { width: 9px; height: 9px; border-radius: 50%; background: #5fd36a; flex: none; }
+  .prow.off .dot { background: #6b5a44; }
+  .prow.dead { opacity: .45; }
+  .prow.dead .nm { text-decoration: line-through; }
+
+  .cell { fill: #2b2117; stroke: var(--honey-d); stroke-width: 2.5; }
+  .cell.inner { fill: #261d14; }
+  .bpt { fill: #6b5a44; }
+  .front { fill: rgba(242,180,60,.16); stroke: var(--honey); stroke-width: 4; animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 50% { fill: rgba(242,180,60,.04); } }
+  .tile-bg { fill: var(--tile); stroke: #8c6a3c; stroke-width: 2; }
+  .tile-line { fill: none; stroke: var(--tile-line); stroke-width: 5; stroke-linecap: round; }
+  .tile.special .tile-bg { fill: #ecd6ab; stroke: #c98e2a; stroke-width: 3; }
+  .badge-bg { fill: #2a1a05; stroke: var(--honey); stroke-width: 3; }
+  .badge text { font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif; }
+  .tile.last .tile-bg { stroke: var(--honey); stroke-width: 5; }
+  .tile.new { animation: drop .45s cubic-bezier(.3,1.5,.6,1); transform-box: fill-box; transform-origin: center; }
+  @keyframes drop { from { transform: scale(1.35); opacity: 0; } }
+  .trails { filter: url(#glow); }
+  .trail { fill: none; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; opacity: .95; }
+  .piece { transition: transform 1s cubic-bezier(.25,1.35,.5,1), opacity .3s; }
+  .piece.noanim { transition: opacity .3s; }
+  .piece circle.body { stroke: #fff; stroke-width: 4; filter: drop-shadow(0 4px 4px rgba(0,0,0,.55)); }
+  .piece circle.ring { fill: none; stroke: var(--honey); stroke-width: 4; opacity: 0; }
+  .piece.turn circle.ring { animation: ring 1.2s ease-out infinite; }
+  @keyframes ring { from { r: 16; opacity: .9; } to { r: 34; opacity: 0; } }
+  .piece text { font: 700 17px "Segoe UI", system-ui, sans-serif; fill: var(--text); paint-order: stroke;
+    stroke: var(--bg); stroke-width: 5px; stroke-linejoin: round; }
+  .piece .cross { stroke: #fff; stroke-width: 4; stroke-linecap: round; display: none; }
+  .piece.dead { opacity: .5; }
+  .piece.dead .cross { display: inline; }
+  .piece.gone { opacity: 0; }
+
+  .overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(10,8,6,.55); backdrop-filter: blur(2px); }
+  .overlay.show { display: flex; }
+  .wincard { background: var(--panel); border: 3px solid var(--honey); border-radius: 26px; padding: 32px 56px;
+    text-align: center; animation: pop .5s cubic-bezier(.3,1.6,.6,1); max-width: 90%; }
+  .wincard .t { color: var(--muted); font-size: 20px; }
+  .wincard .w { font-size: 50px; font-weight: 900; margin-top: 6px; }
+  .scores { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; min-width: 300px; }
+  .scores div { display: flex; align-items: center; gap: 10px; padding: 7px 14px; background: var(--panel2); border-radius: 10px; font-weight: 600; }
+  .scores .chip { width: 18px; height: 20px; }
+  .scores span { flex: 1; text-align: left; }
+  .scores b { color: var(--honey); }
+  .confetti { position: fixed; top: -20px; width: 10px; height: 16px; z-index: 50; pointer-events: none; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(720deg); } }
+
+  /* кубик */
+  .diceov { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(10,8,6,.5); }
+  .diceov.show { display: flex; }
+  .dicebox { background: var(--panel); border: 3px solid var(--line); border-radius: 26px; padding: 28px 36px 24px;
+    text-align: center; max-width: 92%; animation: pop .4s cubic-bezier(.3,1.6,.6,1); }
+  .dicebox .dt { font-size: 26px; font-weight: 800; margin-bottom: 22px; }
+  .dicebox .dt b { color: var(--honey); }
+  .dicerow { display: flex; flex-wrap: wrap; justify-content: center; gap: 22px 26px; }
+  .dslot { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100px; }
+  .dslot .nm { display: flex; align-items: center; gap: 6px; font-weight: 700; max-width: 100%; }
+  .dslot .nm span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dslot .chip { width: 14px; height: 16px; flex: none; }
+  .dslot .lb { font-size: 13px; color: var(--muted); min-height: 1.2em; }
+  .dslot.out { opacity: .35; }
+  .dslot.win .die { box-shadow: 0 0 0 5px var(--honey), 0 6px 0 #b89a6a, 0 0 40px rgba(242,180,60,.6); }
+  .dslot.win .lb { color: var(--honey); font-weight: 700; }
+  .die { width: 76px; height: 76px; border-radius: 18px; background: #fff8ea; padding: 11px; display: grid;
+    grid-template: repeat(3, 1fr) / repeat(3, 1fr); box-shadow: 0 6px 0 #b89a6a, 0 12px 24px rgba(0,0,0,.45); }
+  .die i { border-radius: 50%; margin: 3px; }
+  .die i.on { background: #2a1a05; }
+  .die.rolling { animation: shake .45s ease-in-out infinite; }
+  .die.pop { animation: dpop .45s cubic-bezier(.3,1.8,.6,1); }
+  @keyframes shake { 25% { transform: rotate(-12deg) translateY(-5px); } 75% { transform: rotate(12deg) translateY(-2px); } }
+  @keyframes dpop { from { transform: scale(1.5) rotate(25deg); } }
+  .rollall { margin-top: 22px; padding: 10px 20px; border-radius: 12px; border: 2px solid var(--line);
+    background: var(--panel2); color: var(--muted); font-size: 14px; }
+  .rollall:hover { color: var(--text); border-color: var(--honey-d); }
+
+  .toast { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); background: #33271a; color: var(--text);
+    border: 2px solid var(--honey-d); padding: 12px 24px; border-radius: 999px; font-weight: 700; font-size: 18px;
+    opacity: 0; transition: opacity .3s; pointer-events: none; white-space: nowrap; z-index: 5; }
+  .toast.bad { background: #4a1d17; color: #ffd8d2; border-color: #8a3a2f; }
+  .toast.show { opacity: 1; }
+
+  /* реакції */
+  .react { position: fixed; z-index: 60; font-size: 54px; pointer-events: none; transform: translate(-50%, -50%);
+    animation: floatup 2.2s ease-out forwards; font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,.5)); }
+  @keyframes floatup { 0% { opacity: 0; transform: translate(-50%, -30%) scale(.4); } 12% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); }
+    80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -260%) scale(1); } }
+
+  .conn { position: fixed; left: 14px; bottom: 10px; font-size: 13px; color: var(--muted); z-index: 5; }
+  .conn.bad { color: var(--bad); }
+</style>
+</head>
+<body>
+
+<section id="lobby" class="screen">
+  <svg class="bgcomb" width="100%" height="100%"><defs>
+    <pattern id="comb" width="69.28" height="120" patternUnits="userSpaceOnUse">
+      <path d="M34.64 0 69.28 20v40L34.64 80 0 60V20Z M34.64 80v40" fill="none" stroke="#f2b43c" stroke-width="2"/>
+    </pattern></defs><rect width="100%" height="100%" fill="url(#comb)"/></svg>
+  <div class="logorow"><img class="mark" src="assets/logo.svg" alt=""><h1 class="logo">HEXALAND</h1></div>
+  <div class="lgrid">
+    <div class="lcol">
+      <div class="localbox" id="localbox" hidden>
+        <b>Гра на одному екрані</b>
+        <p>Додавай гравців у панелі праворуч — по черзі ім'я і колір.<br>Граєте за одним комп'ютером, передаючи хід. Або додай ботів.</p>
+        <button class="btn-bot" id="addBot">🤖 Додати бота</button>
+      </div>
+      <div class="join">
+        <div class="qrbox"><img class="qr" alt="QR-код для підключення"></div>
+        <div class="jt">
+          <div class="lbl"><b>Скануй QR камерою телефона</b><br>або відкрий адресу (та сама Wi-Fi мережа):</div>
+          <div class="url" id="url">…</div>
+        </div>
+      </div>
+      <div class="players" id="players"></div>
+      <div class="startbox">
+        <button class="btn-start" id="start" disabled>СТАРТ</button>
+        <div class="hint" id="hint"></div>
+      </div>
+    </div>
+    <div class="settings">
+      <div class="sect"><h4>Режим</h4><div class="seg" id="modes"></div><div class="mdesc" id="mdesc"></div></div>
+      <div class="sect"><h4>Розмір поля</h4><div class="seg" id="sizes"></div></div>
+      <div class="sect"><h4>Таймер ходу</h4><div class="seg" id="timers"></div></div>
+      <div class="sect"><h4>Спецкарти</h4>
+        <div class="sub2">Основні</div><div class="spgrid" id="spMain"></div>
+        <div class="sub2">Додаткові</div><div class="spgrid" id="spExtra"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="game" class="screen">
+  <div class="topbar">
+    <div class="brand"><img src="assets/logo.svg" alt="">HEXALAND</div>
+    <div class="plist" id="plist"></div>
+    <div class="sub" id="sub"></div>
+    <div class="tbar" id="tbar"></div>
+  </div>
+  <div class="boardwrap">
+    <svg id="board"></svg>
+    <div class="toast" id="toast"></div>
+    <div class="diceov" id="diceov"><div class="dicebox">
+      <div class="dt" id="diceT"></div>
+      <div class="dicerow" id="dicerow"></div>
+      <button class="rollall" id="rollAll">Кинути за тих, хто ще не кинув</button>
+    </div></div>
+    <div class="overlay" id="over"><div class="wincard"><div class="t" id="winT"></div><div class="w" id="winW"></div><div class="scores" id="scores"></div></div></div>
+  </div>
+</section>
+
+<div class="tools">
+  <button class="iconbtn" id="fsBtn" title="На весь екран">
+    <svg viewBox="0 0 24 24" id="fsIcon"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
+  <button class="iconbtn" id="burger" title="Меню">
+    <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <div class="menu" id="menu">
+    <button id="mFs"><span class="ic">⛶</span><span id="mFsT">На весь екран</span></button>
+    <button id="mSound"><span class="ic">♪</span><span id="mSoundT">Звук: увімкнено</span></button>
+    <hr>
+    <button id="mStart"><span class="ic">▶</span>Почати гру</button>
+    <button id="mRestart"><span class="ic">↻</span>Нова гра</button>
+    <button id="mBack"><span class="ic">←</span>Назад у лобі</button>
+    <hr>
+    <button id="mReload"><span class="ic">⟳</span>Оновити стіл</button>
+  </div>
+</div>
+
+<div class="conn" id="conn">з'єднання…</div>
+
+<script src="net.js"></script>
+<script src="hex.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const S = 52;                    // розмір соти в пікселях SVG
+const sfx = HX.sfx;
+let state = null, colorHex = {}, boardRadius = null, icons = {}, teams = [];
+let layers = {}, pieces = {}, shownGame = null, shownSeq = null, toastTimer = null;
+let turnDeadline = null, lastTurnKey = null, lastTick = null, shownPhase = null;
+const pname = id => (state.players.find(p => p.id === id) || {}).name || "?";
+
+// ---------- зв'язок ----------
+function connect() {
+  NET.connect(null, {
+    onOpen: () => { $("conn").textContent = (NET.local ? "● гра на одному екрані" : "● сервер на зв'язку") + (HX.keepAwake.mode ? " · 🔆 екран не згасне" : ""); $("conn").className = "conn"; },
+    onError: () => { $("conn").textContent = "○ немає зв'язку з сервером…"; $("conn").className = "conn bad"; },
+    onState: st => { state = st; render(); },
+    onReact: r => showReaction(r),
+  });
+}
+async function api(path, body) {
+  const d = await NET.post(path, body || {});
+  if (!d.ok && d.error) { $("hint").textContent = d.error; if (state && state.phase !== "lobby") toast(d.error, true); }
+}
+$("start").onclick = () => api("/api/start");
+$("addBot").onclick = () => api("/api/addbot");
+const setting = (key, value) => api("/api/settings", { key, value });
+
+// ---------- повний екран, звук і меню ----------
+const FS_ON = "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5", FS_OFF = "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5";
+// у грі на одному екрані — на весь екран іде вся сторінка (стіл + панель гравця)
+const fsDoc = (() => { try { return NET.local ? parent.document : document; } catch (e) { return document; } })();
+function toggleFs() {
+  try { if (fsDoc.fullscreenElement) fsDoc.exitFullscreen(); else fsDoc.documentElement.requestFullscreen(); } catch (e) {}
+}
+fsDoc.addEventListener("fullscreenchange", () => {
+  const on = !!fsDoc.fullscreenElement;
+  $("fsIcon").firstChild.setAttribute("d", on ? FS_OFF : FS_ON);
+  $("fsBtn").title = $("mFsT").textContent = on ? "Вийти з повного екрана" : "На весь екран";
+});
+$("fsBtn").onclick = toggleFs;
+document.addEventListener("keydown", e => { if (e.key === "F11") { e.preventDefault(); toggleFs(); } });
+function closeMenu() { $("menu").classList.remove("open"); $("burger").classList.remove("open"); }
+$("burger").onclick = e => {
+  e.stopPropagation();
+  const open = !$("menu").classList.contains("open");
+  $("menu").classList.toggle("open", open); $("burger").classList.toggle("open", open);
+};
+document.addEventListener("click", e => { if (!$("menu").contains(e.target)) closeMenu(); });
+const menuAct = (id, fn) => { $(id).onclick = () => { closeMenu(); fn(); }; };
+menuAct("mFs", toggleFs);
+menuAct("mStart", () => api("/api/start"));
+menuAct("mRestart", () => api("/api/start"));
+menuAct("mBack", () => api("/api/lobby"));
+menuAct("mReload", () => location.reload());
+function soundLabel() { $("mSoundT").textContent = "Звук: " + (sfx.on ? "увімкнено" : "вимкнено"); }
+$("mSound").onclick = () => { sfx.on = !sfx.on; soundLabel(); sfx.pop(); };
+soundLabel();
+function updateMenu() {
+  const lobby = state.phase === "lobby";
+  $("mStart").hidden = !lobby;
+  $("mStart").disabled = lobby && state.players.length < state.minPlayers;
+  $("mStart").style.opacity = $("mStart").disabled ? .4 : 1;
+  $("mRestart").hidden = lobby;
+  $("mBack").hidden = lobby;
+}
+
+function show(id) { document.querySelectorAll(".screen").forEach(s => s.classList.toggle("active", s.id === id)); }
+function render() {
+  colorHex = Object.fromEntries(state.colors.map(c => [c.id, c.hex]));
+  icons = Object.fromEntries(state.options.specials.map(s => [s.id, s.icon]));
+  teams = state.options.teams;
+  turnDeadline = state.turnLeftMs != null ? Date.now() + state.turnLeftMs : null;
+  updateMenu();
+  if (state.phase === "lobby") { shownGame = null; renderLobby(); show("lobby"); }
+  else { show("game"); renderGame(); }
+  renderDice();
+  if (state.phase === "over" && shownPhase !== "over" && shownPhase !== null) {
+    setTimeout(() => { sfx.win(); confetti(); }, window._animMs || 0);
+  }
+  shownPhase = state.phase;
+}
+
+// ---------- лобі ----------
+function renderLobby() {
+  const st = state.settings, team = st.mode === "team";
+  document.querySelector(".join").hidden = NET.local;
+  if (NET.local && !renderLobby.moved) {           // на одному екрані СТАРТ — одразу під «Додати бота»
+    renderLobby.moved = true;
+    $("localbox").appendChild(document.querySelector(".startbox"));
+    document.querySelector(".startbox").style.marginTop = "16px";
+  }
+  $("localbox").hidden = !NET.local;
+  $("url").textContent = state.joinUrl.replace(/^http:\/\//, "");
+  if (!NET.local && renderLobby.qrFor !== state.joinUrl) {      // адреса змінилась — оновлюємо QR
+    renderLobby.qrFor = state.joinUrl;
+    document.querySelector(".qr").src = "/qr.svg?u=" + encodeURIComponent(state.joinUrl);
+  }
+  const box = $("players"); box.innerHTML = "";
+  for (const p of state.players) {
+    const d = document.createElement("div");
+    d.className = "pcard" + (p.online ? "" : " off");
+    d.dataset.pid = p.id;
+    d.innerHTML = `<div class="chip hex" style="background:${colorHex[p.color]}"></div>
+      <div class="nm"></div><div class="st">${p.online ? "готовий" : "відключився…"}</div>`;
+    d.querySelector(".nm").textContent = p.name;
+    if (NET.local) {
+      const k = document.createElement("button");
+      k.className = "kick"; k.textContent = "✕"; k.title = "Прибрати";
+      k.onclick = () => api("/api/kick", { pid: p.id });
+      d.appendChild(k);
+    }
+    if (team) {
+      const t = teams[p.team], b = document.createElement("button");
+      b.className = "teamb"; b.style.borderColor = t.hex; b.style.color = t.hex; b.textContent = `${t.icon} ${t.name}`;
+      b.title = "Натисни, щоб перекинути в іншу команду";
+      b.onclick = () => api("/api/hostteam", { pid: p.id, team: 1 - p.team });
+      d.appendChild(b);
+    }
+    box.appendChild(d);
+  }
+  const empty = Math.max(0, Math.min(state.maxPlayers - state.players.length, Math.max(1, state.minPlayers - state.players.length)));
+  for (let i = 0; i < empty; i++) {
+    const d = document.createElement("div");
+    d.className = "pcard empty";
+    d.innerHTML = `<div class="chip hex"></div><div class="nm">вільне місце</div>`;
+    box.appendChild(d);
+  }
+  // режими
+  const mb = $("modes"); mb.innerHTML = "";
+  for (const m of state.options.modes) {
+    const b = document.createElement("button");
+    b.className = "opt" + (m.id === st.mode ? " sel" : "");
+    b.innerHTML = `<span class="ic">${m.icon}</span>${m.name}`;
+    b.onclick = () => setting("mode", m.id);
+    mb.appendChild(b);
+  }
+  $("mdesc").textContent = (state.options.modes.find(m => m.id === st.mode) || {}).desc || "";
+  // розмір поля
+  const sb = $("sizes"); sb.innerHTML = "";
+  const maxR = Math.max(...state.options.sizes.map(s => s.radius)), ms = 4, ext = ms * (HX.SQ3 * maxR + 1);
+  for (const s of state.options.sizes) {
+    const b = document.createElement("button");
+    b.className = "opt" + (s.id === st.size ? " sel" : "");
+    const svg = HX.el("svg", { viewBox: `${-ext} ${-ext} ${ext * 2} ${ext * 2}` }, b);
+    for (let r = -s.radius; r <= s.radius; r++) for (let q = -s.radius; q <= s.radius; q++) {
+      if (!HX.inBoard(q, r, s.radius)) continue;
+      const [x, y] = HX.cellXY(q, r, ms);
+      HX.el("polygon", { points: HX.hexPoints(x, y, ms) }, svg);
+    }
+    b.insertAdjacentHTML("beforeend", `${s.name}<small>${s.cells} сот</small>`);
+    b.onclick = () => setting("size", s.id);
+    sb.appendChild(b);
+  }
+  // таймер
+  const tb = $("timers"); tb.innerHTML = "";
+  for (const t of state.options.timers) {
+    const b = document.createElement("button");
+    b.className = "opt" + (t === st.timer ? " sel" : "");
+    b.innerHTML = t ? `<span class="ic">⏱</span>${t} с` : `<span class="ic">∞</span>Без`;
+    b.onclick = () => setting("timer", t);
+    tb.appendChild(b);
+  }
+  // спецкарти
+  for (const [id, main] of [["spMain", true], ["spExtra", false]]) {
+    const g = $(id); g.innerHTML = "";
+    for (const s of state.options.specials.filter(s => s.main === main)) {
+      const on = st.specials.includes(s.id), b = document.createElement("button");
+      b.className = "sp" + (on ? " on" : ""); b.title = s.desc;
+      b.innerHTML = `<span class="ic">${s.icon}</span><span class="nm">${s.name}</span><span class="sw"></span>`;
+      b.onclick = () => setting("special", { id: s.id, on: !on });
+      g.appendChild(b);
+    }
+  }
+  const n = state.players.length;
+  const teamsOk = !team || new Set(state.players.map(p => p.team)).size === 2;
+  $("start").disabled = n < state.minPlayers || !teamsOk;
+  $("hint").textContent = n < state.minPlayers ? `Потрібно щонайменше ${state.minPlayers} гравці (зараз ${n})`
+    : !teamsOk ? "У кожній команді має бути хоча б один гравець"
+    : `Гравців: ${n} з ${state.maxPlayers}`;
+}
+
+// ---------- кубик: хто ходить першим ----------
+let shownRolls = {};
+$("rollAll").onclick = () => api("/api/rollall");
+setInterval(() => {   // поки гравець не кинув, грані кубика миготять
+  document.querySelectorAll(".die.rolling").forEach(d => { d.innerHTML = HX.dieFace(1 + Math.floor(Math.random() * 6)); });
+}, 110);
+function renderDice() {
+  const d = state.dice, on = state.phase === "dice" && d;
+  $("diceov").classList.toggle("show", !!on);
+  if (!on) { shownRolls = {}; return; }
+  const T = $("diceT");
+  if (d.first) T.innerHTML = `Першим ходить <b></b>!`, T.querySelector("b").textContent = pname(d.first);
+  else if (d.round > 1) T.textContent = `Нічия на ${d.tieValue}! Перекидають: ${d.tied.map(pname).join(", ")}`;
+  else T.textContent = "Кидайте кубик на телефонах — хто ходить першим?";
+  const row = $("dicerow"); row.innerHTML = "";
+  let newRoll = false;
+  for (const p of state.players) {
+    const inRound = d.pending.includes(p.id), rolled = p.id in d.rolls, hist = d.all[p.id] || [];
+    const waiting = inRound && !rolled && !d.first;
+    const v = waiting ? 0 : hist[hist.length - 1];
+    const key = d.round + ":" + v;
+    const slot = document.createElement("div");
+    slot.className = "dslot" + (!inRound && d.round > 1 ? " out" : "") + (d.first === p.id ? " win" : "");
+    slot.dataset.pid = p.id;
+    slot.innerHTML = `<div class="die${waiting ? " rolling" : (shownRolls[p.id] !== key ? " pop" : "")}">${HX.dieFace(v || 1)}</div>
+      <div class="nm"><div class="chip hex" style="background:${colorHex[p.color]}"></div><span></span></div>
+      <div class="lb">${d.first === p.id ? "ходить першим" : waiting ? "кидає…" : hist.length > 1 ? "кидки: " + hist.join(" → ") : ""}</div>`;
+    slot.querySelector(".nm span").textContent = p.name;
+    if (!waiting && shownRolls[p.id] !== key) { newRoll = true; shownRolls[p.id] = key; }
+    row.appendChild(slot);
+  }
+  if (newRoll) sfx.dice();
+  if (d.first && !renderDice.fanfare) { renderDice.fanfare = true; setTimeout(() => sfx.turn(), 300); }
+  if (!d.first) renderDice.fanfare = false;
+  $("rollAll").hidden = !!d.first || d.pending.every(id => id in d.rolls);
+}
+
+// ---------- поле ----------
+function buildBoard(R) {
+  const svg = $("board"); svg.innerHTML = "";
+  const ex = S * HX.SQ3 * (R + 0.5) + 50, ey = S * (1.5 * R + 1) + 50;
+  svg.setAttribute("viewBox", `${-ex} ${-ey} ${ex * 2} ${ey * 2}`);
+  svg.insertAdjacentHTML("afterbegin", `<defs><filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+    <feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>`);
+  layers = {};
+  for (const name of ["cells", "front", "tiles", "trails", "pts", "pieces", "tmp"]) layers[name] = HX.el("g", {}, svg);
+  layers.trails.setAttribute("class", "trails");
+  layers.tmp.setAttribute("visibility", "hidden");
+  for (let r = -R; r <= R; r++) for (let q = -R; q <= R; q++) {
+    if (!HX.inBoard(q, r, R)) continue;
+    const [cx, cy] = HX.cellXY(q, r, S);
+    const edgeCell = HX.DIRS.some(([dq, dr]) => !HX.inBoard(q + dq, r + dr, R));
+    HX.el("polygon", { points: HX.hexPoints(cx, cy, S), class: "cell" + (edgeCell ? "" : " inner") }, layers.cells);
+    HX.DIRS.forEach(([dq, dr], e) => {
+      if (HX.inBoard(q + dq, r + dr, R)) return;
+      for (const slot of [0, 1]) {
+        const [x, y] = HX.pointXY({ q, r, i: e * 2 + slot }, S);
+        HX.el("circle", { cx: x, cy: y, r: 4, class: "bpt" }, layers.pts);
+      }
+    });
+  }
+  boardRadius = R; pieces = {}; shownGame = null;
+}
+
+function makePiece(p) {
+  const g = HX.el("g", { class: "piece", "data-pid": p.id }, layers.pieces);
+  HX.el("circle", { r: 16, class: "ring" }, g);
+  HX.el("circle", { r: 15, class: "body", fill: colorHex[p.color] }, g);
+  HX.el("path", { d: "M-7 -7 L7 7 M7 -7 L-7 7", class: "cross" }, g);
+  const t = HX.el("text", { y: -26, "text-anchor": "middle" }, g);
+  t.textContent = (state.settings.mode === "team" ? teams[p.team].icon + " " : "") + p.name;
+  return g;
+}
+const placeAt = (node, x, y, sc = 1) => { node.style.transform = `translate(${x}px,${y}px) scale(${sc})`; };
+
+function drawTrail(p, segs, animate) {
+  if (!segs.length) return;
+  const path = HX.el("path", { d: HX.trailPath(segs, S), class: "trail", stroke: colorHex[p.color] }, layers.trails);
+  if (animate) {
+    const len = path.getTotalLength(), dur = 420 * segs.length;
+    path.style.strokeDasharray = len; path.style.strokeDashoffset = len;
+    path.getBoundingClientRect();
+    path.style.transition = `stroke-dashoffset ${dur}ms linear`;
+    path.style.strokeDashoffset = 0;
+  }
+}
+
+function movePiece(node, segs, done) {
+  const path = HX.el("path", { d: HX.trailPath(segs, S) }, layers.tmp);
+  const len = path.getTotalLength(), dur = 420 * segs.length, t0 = performance.now();
+  node.classList.add("noanim");
+  (function step(now) {
+    const k = Math.min(1, (now - t0) / dur), pt = path.getPointAtLength(len * k);
+    placeAt(node, pt.x, pt.y);
+    if (k < 1) requestAnimationFrame(step); else { path.remove(); done && done(); }
+  })(t0);
+}
+
+function toast(text, bad) {
+  $("toast").textContent = text; $("toast").className = "toast show" + (bad ? " bad" : "");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => $("toast").classList.remove("show"), 3000);
+}
+
+function effectText(lm) {
+  const who = pname(lm.pid), e = lm.effect, parts = [];
+  if (lm.auto) parts.push(`⏱ Час вийшов — ${who}: випадкова карта`);
+  if (e) {
+    if (e.kind === "extra") parts.push(`⚡ ${who} ходить ще раз`);
+    if (e.kind === "swap") parts.push(`🔄 ${who} міняється картами з ${pname(e.with)}`);
+    if (e.kind === "thief") parts.push(`🦝 ${who} поцупив карту в ${pname(e.from)}`);
+    if (e.kind === "skip") parts.push(`⏸️ ${pname(e.who)} пропускає хід`);
+    if (e.kind === "portal") parts.push(`🌀 ${who} телепортується`);
+  }
+  return parts.join("  ·  ");
+}
+
+function renderGame() {
+  const R = state.boardRadius, mode = state.settings.mode;
+  if (boardRadius !== R || !layers.pieces) buildBoard(R);
+  const lm = state.lastMove;
+  const newGame = shownGame !== state.gameId;
+  const newMove = !newGame && lm && shownSeq !== lm.seq;
+
+  // карти на полі
+  layers.tiles.innerHTML = "";
+  for (const t of state.board) {
+    const [cx, cy] = HX.cellXY(t.q, t.r, S);
+    const isLast = lm && lm.q === t.q && lm.r === t.r, kind = state.specials[t.card];
+    HX.drawTile(layers.tiles, cx, cy, S, HX.rotMatch(state.cards[t.card], t.rot),
+      isLast ? "last" + (newMove ? " new" : "") : "", kind && icons[kind]);
+  }
+  // сота, куди ходить поточний гравець
+  layers.front.innerHTML = "";
+  const cur = state.players.find(p => p.id === state.turn);
+  if (cur && cur.pos) {
+    const [cx, cy] = HX.cellXY(cur.pos.q, cur.pos.r, S);
+    HX.el("polygon", { points: HX.hexPoints(cx, cy, S), class: "front" }, layers.front);
+  }
+  // сліди
+  layers.trails.innerHTML = "";
+  for (const p of state.players) {
+    const moved = newMove && lm.moves[p.id] ? lm.moves[p.id].length : 0;
+    drawTrail(p, p.trail.slice(0, p.trail.length - moved), false);
+    if (moved) drawTrail(p, lm.moves[p.id], true);
+  }
+  // фішки
+  if (newGame) { layers.pieces.innerHTML = ""; pieces = {}; }
+  const tp = newMove && lm.effect && lm.effect.kind === "portal" ? lm.effect : null;
+  state.players.forEach((p, n) => {
+    if (!p.pos) return;
+    let node = pieces[p.id];
+    const [x, y] = HX.pointXY(p.pos, S);
+    const teleport = tp && p.id === lm.pid;
+    const landTeleport = () => {   // зникає — і з'являється в новому місці
+      node.classList.add("gone");
+      setTimeout(() => {
+        node.classList.add("noanim"); placeAt(node, x, y);
+        requestAnimationFrame(() => node.classList.remove("gone"));
+        node._busy = false; node.classList.toggle("dead", !p.alive);
+        sfx.special(); floatAtPiece(p.id, "🌀");
+      }, 380);
+    };
+    if (!node) {
+      node = pieces[p.id] = makePiece(p);
+      if (newGame) {          // фішки вилітають з центру по колу
+        node._busy = true;
+        node.classList.add("noanim"); placeAt(node, 0, 0, .3);
+        node.style.transitionDelay = (n * 140) + "ms";
+        requestAnimationFrame(() => requestAnimationFrame(() => { node.classList.remove("noanim"); placeAt(node, x, y); }));
+        setTimeout(() => { node._busy = false; node.style.transitionDelay = "0ms"; }, 1100 + n * 140);
+      } else { node.classList.add("noanim"); placeAt(node, x, y); }
+    } else if (newMove && lm.moves[p.id]) {
+      node._busy = true;
+      movePiece(node, lm.moves[p.id], () => {
+        if (teleport) return landTeleport();
+        node._busy = false; node.classList.toggle("dead", !p.alive);
+      });
+    } else if (teleport) {
+      node._busy = true; landTeleport();
+    } else if (!node._busy) {
+      node.classList.add("noanim"); placeAt(node, x, y);
+    }
+    node.classList.toggle("turn", p.id === state.turn);
+    if (!node._busy) node.classList.toggle("dead", !p.alive);
+  });
+  const animMs = newMove ? 420 * Math.max(1, ...Object.values(lm.moves).map(m => m.length)) : 0;
+  window._animMs = animMs;
+  if (newMove) {
+    sfx.place();
+    if (Object.keys(lm.moves).length) sfx.move(Math.max(...Object.values(lm.moves).map(m => m.length)));
+    const txt = effectText(lm);
+    if (lm.special && lm.special !== "portal") setTimeout(() => sfx.special(), 150);
+    if (txt) setTimeout(() => toast(txt, lm.auto), 200);
+    if (lm.died.length) {
+      setTimeout(() => {
+        toast("💥 Вибув: " + lm.died.map(pname).join(", "), true);
+        sfx.out();
+        const b = $("board"); b.classList.remove("shake"); void b.getBoundingClientRect(); b.classList.add("shake");
+      }, animMs + (txt ? 1200 : 0));
+    }
+  }
+  shownGame = state.gameId; shownSeq = lm ? lm.seq : null;
+  const turnKey = state.turn + ":" + (lm ? lm.seq : 0);
+  if (state.turn && turnKey !== lastTurnKey && !newGame) setTimeout(() => sfx.turn(), animMs + 200);
+  lastTurnKey = turnKey;
+
+  // верхня панель
+  $("sub").innerHTML = state.phase === "over" ? "Гру завершено"
+    : `${(state.options.modes.find(m => m.id === mode) || {}).icon || ""} ${(state.options.modes.find(m => m.id === mode) || {}).name || ""}<br>Колода: ${state.deckCount}`;
+  const list = $("plist"); list.innerHTML = "";
+  for (const p of state.players) {
+    const d = document.createElement("div");
+    const isTurn = p.id === state.turn;
+    d.className = "prow" + (p.online ? "" : " off") + (p.alive ? "" : " dead") + (isTurn ? " turn" : "");
+    d.dataset.pid = p.id;
+    const tag = !p.alive ? "вибув" : isTurn ? `ходить ▸<span class="secs"></span>` : `${p.handCount} карти`;
+    d.innerHTML = (mode === "team" ? `<span class="tm">${teams[p.team].icon}</span>` : "")
+      + `<div class="chip hex" style="background:${colorHex[p.color]}"></div><div class="nm"></div>`
+      + (mode === "points" ? `<div class="sc">⭐ ${p.score}</div>` : "")
+      + `<div class="tag">${tag}</div><div class="dot"></div>`;
+    d.querySelector(".nm").textContent = p.name;
+    list.appendChild(d);
+  }
+  updateTimer();
+  // кінець гри
+  const over = state.phase === "over";
+  clearTimeout(window._overT);
+  if (!over) $("over").classList.remove("show");
+  else window._overT = setTimeout(() => $("over").classList.add("show"), animMs + (animMs ? 700 : 0));
+  if (over) renderWin();
+}
+
+function renderWin() {
+  const mode = state.settings.mode;
+  const w = state.winners.map(id => state.players.find(p => p.id === id)).filter(Boolean);
+  const W = $("winW"); W.innerHTML = "";
+  if (mode === "team" && state.winTeam != null) {
+    const t = teams[state.winTeam];
+    $("winT").textContent = "Перемогла команда";
+    W.innerHTML = `<span style="color:${t.hex}">${t.icon} ${t.name}</span>`;
+  } else {
+    $("winT").textContent = !w.length ? "Нічия — ніхто не вижив" : w.length > 1 ? "Нічия між" : "Переможець";
+    w.forEach((p, i) => {
+      const s = document.createElement("span");
+      s.style.color = colorHex[p.color]; s.textContent = (i ? ", " : "") + p.name;
+      W.appendChild(s);
+    });
+  }
+  const sc = $("scores"); sc.innerHTML = "";
+  const rows = mode === "points" ? [...state.players].sort((a, b) => b.score - a.score)
+    : mode === "team" ? [...state.players].sort((a, b) => a.team - b.team) : [];
+  for (const p of rows) {
+    const d = document.createElement("div");
+    d.innerHTML = `<div class="chip hex" style="background:${colorHex[p.color]}"></div><span></span><b>${mode === "points" ? "⭐ " + p.score : teams[p.team].icon + (p.alive ? " вижив" : " вибув")}</b>`;
+    d.querySelector("span").textContent = p.name;
+    sc.appendChild(d);
+  }
+}
+
+// таймер ходу
+function updateTimer() {
+  const bar = $("tbar"), total = state && state.settings.timer;
+  if (!state || state.phase !== "game" || !turnDeadline || !total) { bar.style.width = "0"; return; }
+  const left = Math.max(0, turnDeadline - Date.now()), secs = Math.ceil(left / 1000);
+  bar.style.width = (100 * left / (total * 1000)) + "%";
+  bar.classList.toggle("low", secs <= 5);
+  const row = document.querySelector(".prow.turn");
+  if (row) { row.classList.toggle("low", secs <= 5); const s = row.querySelector(".secs"); if (s) s.textContent = " " + secs + " с"; }
+  if (secs <= 5 && secs > 0 && lastTick !== secs) { lastTick = secs; sfx.tick(); }
+}
+setInterval(updateTimer, 250);
+
+// ---------- реакції ----------
+function floatAt(x, y, emoji) {
+  const d = document.createElement("div");
+  d.className = "react"; d.textContent = emoji;
+  d.style.left = x + "px"; d.style.top = y + "px";
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 2300);
+}
+function floatAtPiece(pid, emoji) {
+  const sel = `[data-pid="${pid}"]`;
+  const el = (state.phase === "lobby" ? document.querySelector("#players " + sel)
+            : state.phase === "dice" ? document.querySelector("#dicerow " + sel) : null)
+          || document.querySelector("#board " + sel) || document.querySelector("#plist " + sel);
+  if (!el) return floatAt(innerWidth / 2, innerHeight / 2, emoji);
+  const r = el.getBoundingClientRect();
+  floatAt(r.left + r.width / 2 + (Math.random() - .5) * 24, r.top + r.height / 2 - 10, emoji);
+}
+function showReaction(r) { floatAtPiece(r.pid, r.emoji); sfx.pop(); }
+
+function confetti() {
+  const cols = ["#f2b43c", "#ffd36e", "#fff", ...state.players.map(p => colorHex[p.color])];
+  for (let i = 0; i < 140; i++) {
+    const c = document.createElement("div");
+    c.className = "confetti";
+    c.style.left = Math.random() * 100 + "vw";
+    c.style.background = cols[i % cols.length];
+    c.style.animationDuration = (2.2 + Math.random() * 2.2) + "s";
+    c.style.animationDelay = (Math.random() * .8) + "s";
+    c.style.borderRadius = Math.random() < .4 ? "50%" : "2px";
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 5500);
+  }
+}
+
+// екран столу не гасне (на ПК працює Wake Lock — потрібен один клік по сторінці)
+HX.keepAwake.on();
+HX.keepAwake.onChange(m => {
+  const c = $("conn"); if (c.classList.contains("bad")) return;
+  c.textContent = (NET.local ? "● гра на одному екрані" : "● сервер на зв'язку") + (m ? " · 🔆 екран не згасне" : "");
+});
+document.addEventListener("click", () => { if (!HX.keepAwake.mode) HX.keepAwake.on(); }, true);
+
+connect();
+</script>
+</body>
+</html>

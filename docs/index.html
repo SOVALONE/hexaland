@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15110d">
+<title>Hexaland — гра на сотах для компанії</title>
+<meta name="description" content="Hexaland: клади карти з лініями, веди свою фішку і не вилети за край поля. Грай з друзями з телефонів через інтернет.">
+<meta property="og:title" content="Hexaland">
+<meta property="og:description" content="Гра на сотах для компанії. Грай з телефонів через інтернет — без реєстрації.">
+<meta property="og:image" content="assets/logo-512.png">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<script>
+  // посилання-запрошення ?r=КОД веде одразу до кімнати
+  (function () {
+    const r = new URLSearchParams(location.search).get("r");
+    if (r) location.replace("client.html?r=" + encodeURIComponent(r));
+  })();
+</script>
+<style>
+  :root { --bg: #15110d; --panel: #211a13; --panel2: #2a2118; --line: #3d3024; --honey: #f2b43c; --honey-d: #a8742a;
+    --text: #f6ead8; --muted: #a8977f; --bad: #ff7b6b; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif; }
+  body { padding: max(20px, env(safe-area-inset-top)) 18px 30px;
+    background: radial-gradient(ellipse at 50% 0%, #2b1f12 0%, var(--bg) 65%) fixed; }
+  .bgcomb { position: fixed; inset: 0; opacity: .06; pointer-events: none; z-index: -1; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .logorow { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 18px 0 8px; }
+  .logorow img { height: clamp(52px, 12vw, 92px); filter: drop-shadow(0 10px 24px rgba(242,180,60,.3)); }
+  h1 { margin: 0; font-size: clamp(38px, 10vw, 76px); font-weight: 900; letter-spacing: .14em; color: var(--honey);
+    text-shadow: 0 5px 0 #6b4612, 0 18px 40px rgba(242,180,60,.25); }
+  .tag { text-align: center; color: var(--muted); font-size: 17px; margin: 0 0 30px; line-height: 1.45; }
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 620px) { .modes { grid-template-columns: 1fr; } }
+  .mode { position: relative; text-align: left; font: inherit; color: inherit; cursor: pointer; padding: 22px 22px 20px;
+    border-radius: 22px; border: 2px solid var(--line); background: var(--panel); transition: border-color .15s, transform .1s; }
+  .mode:hover { border-color: var(--honey-d); }
+  .mode:active { transform: scale(.985); }
+  .mode .ic { font-size: 40px; line-height: 1; }
+  .mode b { display: block; font-size: 22px; margin: 12px 0 6px; }
+  .mode p { margin: 0; color: var(--muted); line-height: 1.45; font-size: 15px; }
+  .mode.rec { border-color: var(--honey); background: #2e2316; }
+  .mode .rb { position: absolute; top: 14px; right: 14px; font-size: 12px; font-weight: 800; letter-spacing: .05em; padding: 4px 10px;
+    border-radius: 99px; background: var(--honey); color: #2a1a05; display: none; }
+  .mode.rec .rb { display: block; }
+  .join { margin-top: 18px; padding: 20px 22px; border-radius: 22px; border: 2px solid var(--line); background: var(--panel); }
+  .join b { font-size: 19px; }
+  .join p { margin: 4px 0 14px; color: var(--muted); font-size: 15px; }
+  .jrow { display: flex; gap: 10px; }
+  .jrow input { flex: 1; min-width: 0; font: 800 26px Consolas, "Cascadia Mono", monospace; letter-spacing: .3em; text-transform: uppercase;
+    text-align: center; padding: 12px; border-radius: 14px; border: 2px solid var(--line); background: var(--panel2); color: var(--text); outline: none; }
+  .jrow input:focus { border-color: var(--honey); }
+  .jrow button { font: inherit; font-size: 19px; font-weight: 800; padding: 0 26px; border: 0; border-radius: 14px;
+    background: var(--honey); color: #2a1a05; box-shadow: 0 4px 0 #8a5a17; cursor: pointer; }
+  .jrow button:disabled { opacity: .35; }
+  .err { color: var(--bad); min-height: 1.3em; margin-top: 8px; font-size: 14px; }
+  details { margin-top: 18px; padding: 16px 22px; border-radius: 22px; background: var(--panel); border: 2px solid var(--line); }
+  summary { cursor: pointer; font-weight: 700; font-size: 18px; }
+  details ul { color: var(--muted); line-height: 1.55; padding-left: 20px; margin: 12px 0 0; }
+  details li b { color: var(--text); }
+  .foot { text-align: center; color: var(--muted); font-size: 13px; margin-top: 26px; }
+  .resume { display: none; margin: 0 0 16px; padding: 14px 18px; border-radius: 16px; background: #1f3a1f; border: 2px solid #3f7a3f;
+    color: #c9f2c9; text-decoration: none; font-weight: 700; text-align: center; }
+  .resume.show { display: block; }
+</style>
+</head>
+<body>
+<svg class="bgcomb" width="100%" height="100%"><defs>
+  <pattern id="comb" width="69.28" height="120" patternUnits="userSpaceOnUse">
+    <path d="M34.64 0 69.28 20v40L34.64 80 0 60V20Z M34.64 80v40" fill="none" stroke="#f2b43c" stroke-width="2"/>
+  </pattern></defs><rect width="100%" height="100%" fill="url(#comb)"/></svg>
+<div class="wrap">
+  <div class="logorow"><img src="assets/logo.svg" alt=""><h1>HEXALAND</h1></div>
+  <p class="tag">Клади карти з лініями, веди свою фішку і не вилети за край поля.<br>Від 2 до 8 гравців, через інтернет, без реєстрації.</p>
+
+  <a class="resume" id="resume" href="#"></a>
+
+  <div class="modes">
+    <button class="mode" id="mTable">
+      <span class="rb">ДЛЯ ЦЬОГО ЕКРАНА</span>
+      <div class="ic">🖥️</div>
+      <b>Стіл на цьому екрані</b>
+      <p>Поле — на комп'ютері чи телевізорі. Гравці сканують QR-код і грають зі своїх телефонів.</p>
+    </button>
+    <button class="mode" id="mPhone">
+      <span class="rb">ДЛЯ ЦЬОГО ЕКРАНА</span>
+      <div class="ic">📱</div>
+      <b>Гра лише на телефонах</b>
+      <p>Створи кімнату на своєму телефоні й надішли друзям посилання. Кожен бачить усе поле у себе.</p>
+    </button>
+  </div>
+
+  <div class="join">
+    <b>Маєш код кімнати?</b>
+    <p>Введи код, який показує стіл або хост гри.</p>
+    <div class="jrow">
+      <input id="code" maxlength="8" placeholder="КОД" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+      <button id="go" disabled>Увійти</button>
+    </div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <details>
+    <summary>Як грати</summary>
+    <ul>
+      <li>У кожного 3 карти з лініями. Клади карту перед своєю фішкою — і фішка поїде по лінії.</li>
+      <li>Хто вилетів за край поля — вибуває. Дві фішки зіткнулись — вибувають обидві.</li>
+      <li>Перемагає той, хто залишився останнім. Є ще <b>командна</b> гра і гра <b>на очки</b>.</li>
+      <li>Спецкарти: ⚡ ще хід, 🔄 обмін, ↩️ відбивач, 🌀 телепорт та інші.</li>
+      <li>Хто зайде під час гри — дивиться як <b>глядач</b> і грає з наступної партії.</li>
+      <li>Пристрій, який створив кімнату, і є «сервером»: не закривай на ньому вкладку, поки йде гра.</li>
+    </ul>
+  </details>
+  <div class="foot">Hexaland · гра працює прямо в браузері</div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const touch = matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) < 820;
+$(touch ? "mPhone" : "mTable").classList.add("rec");
+if (touch) $("mPhone").parentNode.insertBefore($("mPhone"), $("mTable"));
+$("mTable").onclick = () => { location.href = "host.html?as=table"; };
+$("mPhone").onclick = () => { location.href = "host.html?as=phone"; };
+
+const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+$("code").addEventListener("input", () => { $("code").value = norm($("code").value); $("go").disabled = $("code").value.length < 4; $("err").textContent = ""; });
+const go = () => { const c = norm($("code").value); if (c.length < 4) { $("err").textContent = "Код має бути з 5 символів"; return; } location.href = "client.html?r=" + c; };
+$("go").onclick = go;
+$("code").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+
+// незавершена кімната на цьому пристрої — можна повернутися
+try {
+  const s = JSON.parse(localStorage.getItem("hexaland-host") || "null");
+  if (s && Date.now() - s.t < 3 * 3600e3 && s.snap && s.snap.players.length) {
+    const r = $("resume");
+    r.textContent = `↩ Повернутися до своєї кімнати ${s.code} (${s.snap.players.length} гравц.)`;
+    r.href = `host.html?as=${s.kind}&code=${s.code}`;
+    r.classList.add("show");
+  }
+} catch (e) {}
+</script>
+</body>
+</html>

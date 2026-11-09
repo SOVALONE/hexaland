@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hexaland</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<style>
+  :root { --bg: #15110d; --panel: #211a13; --line: #3d3024; --honey: #f2b43c; --text: #f6ead8; --muted: #a8977f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif; }
+  .app { display: flex; height: 100%; }
+  #table { flex: 1; min-width: 0; height: 100%; border: 0; display: block; }
+  .side { width: clamp(330px, 30vw, 420px); display: flex; flex-direction: column; background: #100d0a; border-left: 2px solid var(--line); }
+  .who { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 8px 12px;
+    background: var(--panel); border-bottom: 2px solid var(--line); font-weight: 700; font-size: 16px; text-align: center; }
+  .who .chip { width: 20px; height: 23px; flex: none; clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%); }
+  .who.turn { background: #3a2b18; color: var(--honey); }
+  #phone { flex: 1; width: 100%; border: 0; display: block; }
+  @media (max-width: 860px) {
+    .app { flex-direction: column; }
+    #table { flex: none; height: 52%; }
+    .side { width: 100%; flex: 1; border-left: 0; border-top: 2px solid var(--line); min-height: 0; }
+  }
+</style>
+<!-- рушій гри працює прямо тут, у браузері -->
+<script src="engine.js"></script>
+</head>
+<body>
+<div class="app">
+  <iframe id="table" src="table.html" title="Стіл" allow="fullscreen; autoplay"></iframe>
+  <aside class="side">
+    <div class="who" id="who">Додайте гравців</div>
+    <iframe id="phone" src="client.html" title="Панель гравця" allow="autoplay"></iframe>
+  </aside>
+</div>
+<script>
+// «Директор» гри на одному екрані: показує в панелі праворуч того гравця, чия зараз черга.
+const G = HEXLOCAL.game, phone = document.getElementById("phone"), who = document.getElementById("who");
+const colorHex = {};
+const W = () => { try { return phone.contentWindow.hexSetMe ? phone.contentWindow : null; } catch (e) { return null; } };
+
+function setPhone(pid, note) {
+  const w = W(); if (!w) return;
+  if (!pid) return w.hexSetMe({}, note);
+  const p = G.players.get(pid);
+  w.hexSetMe({ token: G.tokenOf(pid), id: pid, name: p.name, color: p.color }, note);
+}
+function header(text, p, turn) {
+  who.className = "who" + (turn ? " turn" : "");
+  who.innerHTML = (p ? `<div class="chip" style="background:${colorHex[p.color]}"></div>` : "") + "<span></span>";
+  who.querySelector("span").textContent = text;
+}
+
+G.onChange = st => {
+  st.colors.forEach(c => { colorHex[c.id] = c.hex; });
+  const w = W(); if (!w) return;
+  const cur = w.hexWho() || {};
+  const humans = st.players.filter(p => !p.bot);
+  const byId = id => st.players.find(p => p.id === id);
+  let target = cur.id && byId(cur.id) ? cur.id : null;
+
+  if (st.phase === "lobby") {
+    // щойно додали гравця — очищаємо форму для наступного
+    if (cur.token) setPhone(null, target ? `✓ ${byId(target).name} за столом! Додай наступного гравця` : "");
+    header(st.players.length ? `За столом: ${st.players.length}. Додавайте ще або тисніть СТАРТ` : "Додайте гравців");
+    return;
+  }
+  if (st.phase === "dice" && st.dice) {
+    const d = st.dice;
+    const next = d.pending.find(id => !(id in d.rolls) && !byId(id).bot);
+    if (next) target = next;
+    const p = byId(target);
+    header(d.first ? `Першим ходить ${byId(d.first).name}` : p && next ? `Кидає кубик: ${p.name}` : "Кидають кубик…",
+      d.first ? byId(d.first) : p, !!next || !!d.first);
+  } else if (st.phase === "game") {
+    const t = byId(st.turn);
+    if (t && !t.bot) target = t.id;
+    else if (!target && humans.length) target = humans[0].id;
+    header(t ? (t.bot ? `${t.name} думає…` : `Хід: ${t.name}`) : "", t, t && !t.bot);
+  } else if (st.phase === "over") {
+    if (!target && humans.length) target = (humans.find(p => st.winners.includes(p.id)) || humans[0]).id;
+    header("Гру завершено");
+  }
+  if (target && target !== cur.id) setPhone(target);
+};
+</script>
+</body>
+</html>
