@@ -249,6 +249,8 @@
   .hmenu .m button { display: block; width: 100%; text-align: left; padding: 12px 14px; border: 0; border-radius: 10px; background: none;
     color: var(--text); font: inherit; font-size: 16px; font-weight: 600; }
   .hmenu .m button:active { background: var(--panel2); }
+  .langrow { display: flex; justify-content: flex-start; margin: -4px 0 -6px; }
+  body.playing .langrow { margin: -6px 0 -30px; }
   .nf { text-align: center; padding: 30px 20px; }
   .nf .big { font-size: 54px; }
   .nf a.main { display: block; text-decoration: none; margin-top: 18px; }
@@ -256,6 +258,7 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="langrow" id="langrow"></div>
   <div class="logo"><img src="assets/logo.svg" alt="">HEXALAND</div>
 
   <!-- 1. Вхід: ім'я + колір -->
@@ -378,6 +381,7 @@
   </div>
 </div>
 
+<script src="i18n.js"></script>
 <script src="vendor/peerjs.min.js"></script>
 <script src="vendor/qrcode.js"></script>
 <script src="p2p.js"></script>
@@ -455,7 +459,7 @@ function updateTimer() {
   if (!state || state.phase !== "game" || !turnDeadline || !total || !tl) { tb.classList.remove("low"); return; }
   const left = Math.max(0, turnDeadline - Date.now()), secs = Math.ceil(left / 1000);
   tl.style.width = (100 * left / (total * 1000)) + "%";
-  if (secsEl) secsEl.textContent = ` · ${secs} с`;
+  if (secsEl) secsEl.textContent = " · " + tr("{n} с", { n: secs });
   const mine = state.turn === me.id;
   tb.classList.toggle("low", mine && secs <= 5);
   if (mine && secs <= 5 && secs > 0 && buzzed !== secs) { buzzed = secs; vibrate(40); }
@@ -468,16 +472,16 @@ function setConn(ok) {
   let t;
   if (NET.isHost) {
     ok = hostNet === "online";
-    t = ok ? `● кімната ${NET.room} відкрита` : hostNet === "connecting" ? "○ відкриваємо кімнату…" : "○ немає інтернету — перепідключення…";
+    t = ok ? tr("● кімната {r} відкрита", { r: NET.room }) : hostNet === "connecting" ? tr("○ відкриваємо кімнату…") : tr("○ немає інтернету — перепідключення…");
     if (ok && state && state.spectators && state.phase !== "lobby") t += ` · 👀 ${state.spectators}`;
-  } else t = ok ? `● на зв'язку · кімната ${NET.room}` : connFail === "notfound" ? `○ хост кімнати ${NET.room} не відповідає…` : "○ перепідключення…";
-  $("conn").textContent = t + (HX.keepAwake.mode ? " · 🔆 екран не згасне" : "");
+  } else t = ok ? tr("● на зв'язку · кімната {r}", { r: NET.room }) : connFail === "notfound" ? tr("○ хост кімнати {r} не відповідає…", { r: NET.room }) : tr("○ перепідключення…");
+  $("conn").textContent = t + (HX.keepAwake.mode ? tr(" · 🔆 екран не згасне") : "");
   $("conn").className = "conn" + (ok ? "" : " bad");
 }
 if (NET.hostInfo) NET.hostInfo.onStatus(s => { hostNet = s; setConn(connOk); });
 function showNotFound(kind) {
-  if (kind === "noroom") { $("nfT").textContent = "Немає коду кімнати"; $("nfX").textContent = "Відкрий посилання-запрошення або введи код на головній."; }
-  if (kind === "browser") { $("nfT").textContent = "Браузер не підтримує гру"; $("nfX").textContent = "Спробуй Chrome, Safari або Firefox останньої версії."; }
+  if (kind === "noroom") { $("nfT").textContent = tr("Немає коду кімнати"); $("nfX").textContent = tr("Відкрий посилання-запрошення або введи код на головній."); }
+  if (kind === "browser") { $("nfT").textContent = tr("Браузер не підтримує гру"); $("nfX").textContent = tr("Спробуй Chrome, Safari або Firefox останньої версії."); }
   show("nf");
 }
 
@@ -493,7 +497,7 @@ async function join(name, color) {
   busy = true; $("go").disabled = true;
   const res = await post("/api/join", { token: me.token, name, color });
   busy = false; $("go").disabled = false;
-  if (!res.ok) { $("err").textContent = res.error || "Помилка"; return false; }
+  if (!res.ok) { $("err").textContent = tr(res.error || "Помилка"); return false; }
   const tokenChanged = res.token !== me.token;
   me = { token: res.token, id: res.id, name, color };
   store.set(me);
@@ -505,8 +509,8 @@ async function join(name, color) {
 
 $("go").onclick = () => {
   const name = $("name").value.trim();
-  if (!name) { $("err").textContent = "Введи ім'я"; $("name").focus(); return; }
-  if (!picked) { $("err").textContent = "Вибери колір"; return; }
+  if (!name) { $("err").textContent = tr("Введи ім'я"); $("name").focus(); return; }
+  if (!picked) { $("err").textContent = tr("Вибери колір"); return; }
   join(name, picked);
 };
 $("name").addEventListener("keydown", e => { if (e.key === "Enter") $("name").blur(); });
@@ -532,7 +536,7 @@ $("place").onclick = async () => {
   placing = true; $("place").disabled = true;
   const res = await post("/api/place", { token: me.token, card: sel, rot: rots[sel] || 0 });
   placing = false;
-  if (!res.ok) $("perr").textContent = res.error || "Помилка";
+  if (!res.ok) $("perr").textContent = tr(res.error || "Помилка");
   render();
 };
 
@@ -567,11 +571,11 @@ function render() {
     const st = state.settings, team = st.mode === "team";
     const mode = state.options.modes.find(m => m.id === st.mode) || {};
     const size = state.options.sizes.find(s => s.id === st.size) || {};
-    $("wInfo").innerHTML = `<span>${mode.icon} ${mode.name}</span><span>⬡ ${size.name} поле</span>`
-      + `<span>${st.timer ? "⏱ " + st.timer + " с на хід" : "∞ без таймера"}</span>`
+    $("wInfo").innerHTML = `<span>${mode.icon} ${tr(mode.name)}</span><span>⬡ ${tr("{s} поле", { s: tr(size.name) })}</span>`
+      + `<span>${st.timer ? tr("⏱ {n} с на хід", { n: st.timer }) : tr("∞ без таймера")}</span>`
       + (st.specials.length ? `<span>${st.specials.map(k => icons[k]).join(" ")}</span>` : "");
-    $("wSt").textContent = NET.isHost ? "Налаштуй гру нижче, поділись кімнатою й натисни «СТАРТ»"
-      : state.hostKind === "table" ? "Ти за столом. Чекаємо, поки на столі натиснуть «Старт»" : "Ти в кімнаті. Чекаємо, поки хост натисне «Старт»";
+    $("wSt").textContent = tr(NET.isHost ? "Налаштуй гру нижче, поділись кімнатою й натисни «СТАРТ»"
+      : state.hostKind === "table" ? "Ти за столом. Чекаємо, поки на столі натиснуть «Старт»" : "Ти в кімнаті. Чекаємо, поки хост натисне «Старт»");
     $("leave").hidden = NET.isHost;
     renderShare();
     renderHost();
@@ -580,7 +584,7 @@ function render() {
       const b = document.createElement("button");
       const on = mine.team === t.id;
       b.className = on ? "sel" : ""; if (on) b.style.borderColor = t.hex, b.style.color = t.hex, b.style.background = "#1a140e";
-      b.textContent = `${t.icon} ${t.name}`;
+      b.textContent = `${t.icon} ${tr(t.name)}`;
       b.onclick = () => post("/api/team", { token: me.token, team: t.id });
       tp.appendChild(b);
     }
@@ -590,10 +594,10 @@ function render() {
       d.className = "prow" + (p.online ? "" : " off");
       const tag = NET.isHost ? "button" : "span";
       d.innerHTML = `<div class="chip hex" style="background:${hex[p.color]}"></div><div class="grow"></div>`
-        + (team ? `<${tag} class="tchip" style="border-color:${teams[p.team].hex};color:${teams[p.team].hex}">${teams[p.team].icon} ${teams[p.team].name}</${tag}>` : "")
-        + (!p.online ? `<span class="wait">офлайн</span>` : "")
-        + (NET.isHost && p.id !== me.id ? `<button class="x" title="Прибрати">✕</button>` : "");
-      d.querySelector(".grow").textContent = p.name + (p.id === me.id ? " (ти)" : "");
+        + (team ? `<${tag} class="tchip" style="border-color:${teams[p.team].hex};color:${teams[p.team].hex}">${teams[p.team].icon} ${tr(teams[p.team].name)}</${tag}>` : "")
+        + (!p.online ? `<span class="wait">${tr("офлайн")}</span>` : "")
+        + (NET.isHost && p.id !== me.id ? `<button class="x" title="${tr("Прибрати")}">✕</button>` : "");
+      d.querySelector(".grow").textContent = p.name + (p.id === me.id ? tr(" (ти)") : "");
       if (NET.isHost && team) d.querySelector(".tchip").onclick = () => post("/api/hostteam", { pid: p.id, team: 1 - p.team });
       if (NET.isHost && p.id !== me.id) d.querySelector(".x").onclick = () => post("/api/kick", { pid: p.id });
       box.appendChild(d);
@@ -618,7 +622,7 @@ async function doRoll() {
   if (navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
   render();
   const res = await post("/api/roll", { token: me.token });
-  setTimeout(() => { if (!res.ok) $("dText").textContent = res.error || "Помилка"; render(); }, Math.max(0, rollingUntil - Date.now()));
+  setTimeout(() => { if (!res.ok) $("dText").textContent = tr(res.error || "Помилка"); render(); }, Math.max(0, rollingUntil - Date.now()));
 }
 $("rollBtn").onclick = doRoll;
 $("myDie").onclick = doRoll;
@@ -646,17 +650,17 @@ function renderDice(hex, mine) {
   $("rollBtn").disabled = rolling;
   let title, text;
   if (d.first) {
-    title = d.first === me.id ? "Ти ходиш першим! 🎉" : "Першим ходить " + name(d.first);
-    text = "Гра починається…";
+    title = d.first === me.id ? tr("Ти ходиш першим! 🎉") : tr("Першим ходить {n}", { n: name(d.first) });
+    text = tr("Гра починається…");
   } else if (inRound && !rolled) {
-    title = d.round > 1 ? "Нічия! Перекинь кубик" : "Хто ходить першим?";
-    text = d.round > 1 ? `У вас однаково по ${d.tieValue}` : "Натисни на кубик або на кнопку";
+    title = tr(d.round > 1 ? "Нічия! Перекинь кубик" : "Хто ходить першим?");
+    text = d.round > 1 ? tr("У вас однаково по {n}", { n: d.tieValue }) : tr("Натисни на кубик або на кнопку");
   } else if (inRound) {
-    title = "Ти викинув " + last; text = "Чекаємо, поки кинуть інші…";
+    title = tr("Ти викинув {n}", { n: last }); text = tr("Чекаємо, поки кинуть інші…");
   } else {
-    title = "Ти викинув " + last; text = "Перекидають: " + d.tied.map(name).join(", ");
+    title = tr("Ти викинув {n}", { n: last }); text = tr("Перекидають: {n}", { n: d.tied.map(name).join(", ") });
   }
-  if (rolling) { title = "Кидаємо…"; text = ""; }
+  if (rolling) { title = tr("Кидаємо…"); text = ""; }
   $("dTitle").textContent = title;
   $("dText").textContent = text;
 
@@ -666,8 +670,8 @@ function renderDice(hex, mine) {
     const row = document.createElement("div");
     row.className = "prow";
     row.innerHTML = `<div class="chip hex" style="background:${hex[p.color]}"></div><div class="grow"></div>` +
-      (waiting || !h.length ? `<div class="wait">кидає…</div>` : `<div class="die small">${HX.dieFace(h[h.length - 1])}</div>`);
-    row.querySelector(".grow").textContent = p.name + (p.id === me.id ? " (ти)" : "") + (d.first === p.id ? " — перший" : "");
+      (waiting || !h.length ? `<div class="wait">${tr("кидає…")}</div>` : `<div class="die small">${HX.dieFace(h[h.length - 1])}</div>`);
+    row.querySelector(".grow").textContent = p.name + (p.id === me.id ? tr(" (ти)") : "") + (d.first === p.id ? tr(" — перший") : "");
     box.appendChild(row);
   }
   show("dice");
@@ -681,24 +685,24 @@ function renderOut(hex, mine) {
   $("hostOver").hidden = $("hostOver2").hidden = !(over && NET.isHost);
   if (!mine && !over) {
     const cur = state.players.find(p => p.id === state.turn);
-    $("oTitle").textContent = "👀 Ти глядач";
-    $("oText").textContent = "Гра вже йде — зіграєш у наступній партії" + (cur ? ` · ходить ${cur.name}` : "");
+    $("oTitle").textContent = tr("👀 Ти глядач");
+    $("oText").textContent = tr("Гра вже йде — зіграєш у наступній партії") + (cur ? tr(" · ходить {n}", { n: cur.name }) : "");
   } else if (over) {
     const won = !!mine && state.winners.includes(me.id);
     if (mode === "team" && state.winTeam != null) {
       const t = teams[state.winTeam];
-      $("oTitle").textContent = won ? "Твоя команда перемогла! 🏆" : "Перемогла команда " + t.icon + " " + t.name;
+      $("oTitle").textContent = won ? tr("Твоя команда перемогла! 🏆") : tr("Перемогла команда {n}", { n: t.icon + " " + tr(t.name) });
       $("oText").textContent = names.join(", ");
     } else {
-      $("oTitle").textContent = won ? (names.length > 1 ? "Нічия!" : "Ти переміг! 🏆") : "Гру завершено";
-      $("oText").textContent = (won && names.length === 1) ? (mode === "points" ? "У тебе найбільше очок." : "Ти залишився на полі останнім.")
-        : names.length ? (names.length > 1 ? "Ділять перемогу: " : "Переміг: ") + names.join(", ") : "Нічия — ніхто не вижив.";
+      $("oTitle").textContent = tr(won ? (names.length > 1 ? "Нічия!" : "Ти переміг! 🏆") : "Гру завершено");
+      $("oText").textContent = (won && names.length === 1) ? tr(mode === "points" ? "У тебе найбільше очок." : "Ти залишився на полі останнім.")
+        : names.length ? tr(names.length > 1 ? "Ділять перемогу: {n}" : "Переміг: {n}", { n: names.join(", ") }) : tr("Нічия — ніхто не вижив.");
     }
-    if (!NET.isHost) $("oText").textContent += " · Чекаємо, поки хост почне нову гру";
+    if (!NET.isHost) $("oText").textContent += tr(" · Чекаємо, поки хост почне нову гру");
   } else {
     const cur = state.players.find(p => p.id === state.turn);
-    $("oTitle").textContent = "Тебе вибито 💥";
-    $("oText").textContent = "Дивись, як грають інші" + (cur ? ` · ходить ${cur.name}` : "");
+    $("oTitle").textContent = tr("Тебе вибито 💥");
+    $("oText").textContent = tr("Дивись, як грають інші") + (cur ? tr(" · ходить {n}", { n: cur.name }) : "");
   }
   // все поле, як на столі
   drawMap($("full"), hex, null);
@@ -709,11 +713,11 @@ function renderOut(hex, mine) {
     d.className = "prow" + (p.alive ? "" : " dead") + (p.id === state.turn ? " turn" : "");
     d.innerHTML = `<div class="chip hex" style="background:${hex[p.color]}"></div><div class="grow"></div>`
       + (mode === "team" ? `<span class="tchip" style="border-color:${teams[p.team].hex};color:${teams[p.team].hex}">${teams[p.team].icon}</span>` : "")
-      + (mode === "points" ? `<span class="sc">⭐ ${p.score}</span>` : `<span class="wait">${p.alive ? (p.id === state.turn ? "ходить" : "у грі") : "вибув"}</span>`);
-    d.querySelector(".grow").textContent = p.name + (p.id === me.id ? " (ти)" : "");
+      + (mode === "points" ? `<span class="sc">⭐ ${p.score}</span>` : `<span class="wait">${tr(p.alive ? (p.id === state.turn ? "ходить" : "у грі") : "вибув")}</span>`);
+    d.querySelector(".grow").textContent = p.name + (p.id === me.id ? tr(" (ти)") : "");
     list.appendChild(d);
   }
-  $("oListT").textContent = state.spectators ? `Гравці · 👀 глядачів: ${state.spectators}` : "Гравці";
+  $("oListT").textContent = state.spectators ? tr("Гравці · 👀 глядачів: {n}", { n: state.spectators }) : tr("Гравці");
   show("out");
 }
 
@@ -733,16 +737,16 @@ function renderPlay(hex, mine) {
   const cur = state.players.find(p => p.id === state.turn);
   const tb = $("turnbar");
   tb.className = "turnbar" + (myTurn ? " mine" : "");
-  tb.innerHTML = (myTurn ? `<span>Твій хід!<span class="secs"></span></span>` : `<div class="chip hex"></div><span class="who"></span><span class="secs"></span>`)
+  tb.innerHTML = (myTurn ? `<span>${tr("Твій хід!")}<span class="secs"></span></span>` : `<div class="chip hex"></div><span class="who"></span><span class="secs"></span>`)
     + `<div class="tl"></div>`;
-  if (!myTurn && cur) { tb.querySelector(".chip").style.background = hex[cur.color]; tb.querySelector(".who").textContent = "Хід: " + cur.name; }
+  if (!myTurn && cur) { tb.querySelector(".chip").style.background = hex[cur.color]; tb.querySelector(".who").textContent = tr("Хід: {n}", { n: cur.name }); }
   const ps = [];
-  if (mode === "points") ps.push(`⭐ Твої очки: <b>${mine.score}</b>`);
-  if (team) ps.push(`Команда: <b>${teams[mine.team].icon} ${teams[mine.team].name}</b>`);
+  if (mode === "points") ps.push(tr("⭐ Твої очки: <b>{n}</b>", { n: mine.score }));
+  if (team) ps.push(tr("Команда: <b>{n}</b>", { n: teams[mine.team].icon + " " + tr(teams[mine.team].name) }));
   const lm = state.lastMove;
   if (lm && lm.effect && (lm.effect.with === me.id || lm.effect.from === me.id) && lm.seq !== renderPlay.seenFx) {
     renderPlay.seenFx = lm.seq; vibrate([60, 40, 60]);
-    $("perr").textContent = lm.effect.kind === "swap" ? `🔄 ${pname(lm.pid)} обміняв(ла)ся з тобою картами!` : `🦝 ${pname(lm.pid)} поцупив(ла) твою карту!`;
+    $("perr").textContent = tr(lm.effect.kind === "swap" ? "🔄 {n} обміняв(ла)ся з тобою картами!" : "🦝 {n} поцупив(ла) твою карту!", { n: pname(lm.pid) });
   }
   $("pstat").innerHTML = ps.join(" · ");
   updateTimer();
@@ -812,15 +816,15 @@ function renderPlay(hex, mine) {
       && p.pos.q === res.pos.q && p.pos.r === res.pos.r && p.pos.i === res.pos.i);
     const ally = hit && team && hit.team === mine.team;
     const pts = mode === "points" ? ` (+${res.segs.length} ⭐)` : "";
-    if (!res.alive && selKind === "portal") { warnOk = true; warn = "🌀 Вилетиш, але телепорт врятує"; }
-    else if (!res.alive) warn = "⚠ Так ти вилетиш за край поля";
-    else if (hit && !ally) warn = "⚠ Зіткнешся з " + hit.name + " — вибудете обоє";
-    else if (ally) { warnOk = true; warn = "🤝 Зустрінеш союзника " + hit.name + " — це безпечно"; }
-    else { warnOk = true; warn = (res.segs.length > 1 ? `Пройдеш через ${res.segs.length} карти` : "Натисни на карту, щоб повернути") + pts; }
+    if (!res.alive && selKind === "portal") { warnOk = true; warn = tr("🌀 Вилетиш, але телепорт врятує"); }
+    else if (!res.alive) warn = tr("⚠ Так ти вилетиш за край поля");
+    else if (hit && !ally) warn = tr("⚠ Зіткнешся з {n} — вибудете обоє", { n: hit.name });
+    else if (ally) { warnOk = true; warn = tr("🤝 Зустрінеш союзника {n} — це безпечно", { n: hit.name }); }
+    else { warnOk = true; warn = (res.segs.length > 1 ? tr("Пройдеш через {n} карти", { n: res.segs.length }) : tr("Натисни на карту, щоб повернути")) + pts; }
   }
   const si = $("spinfo");
   si.classList.toggle("show", !!selKind);
-  if (selKind) si.innerHTML = `<b>${specInfo[selKind].icon} ${specInfo[selKind].name}.</b> ${specInfo[selKind].desc}`;
+  if (selKind) si.innerHTML = `<b>${specInfo[selKind].icon} ${tr(specInfo[selKind].name)}.</b> ${tr(specInfo[selKind].desc)}`;
   // інші фішки поруч
   for (const p of state.players) {
     if (p.id === me.id || !p.alive || !p.pos) continue;
@@ -850,9 +854,9 @@ function renderPlay(hex, mine) {
   $("warn").textContent = warn;
   $("warn").className = "warn" + (warnOk ? " ok" : "");
   $("place").disabled = !myTurn || !sel || placing;
-  $("place").textContent = myTurn ? "Покласти" : "Чекай свого ходу";
+  $("place").textContent = tr(myTurn ? "Покласти" : "Чекай свого ходу");
   $("rotL").disabled = $("rotR").disabled = !sel;
-  $("deck").textContent = `у колоді: ${state.deckCount}`;
+  $("deck").textContent = tr("у колоді: {n}", { n: state.deckCount });
 
   // рука
   const hb = $("hand"); hb.innerHTML = "";
@@ -878,17 +882,17 @@ function renderJoin(hex, mine) {
   for (const c of state.colors) {
     const b = document.createElement("button");
     b.className = "sw" + (c.id === picked ? " sel" : "") + (taken.has(c.id) ? " taken" : "");
-    b.title = c.name; b.disabled = taken.has(c.id);
+    b.title = tr(c.name); b.disabled = taken.has(c.id);
     b.innerHTML = `<div class="ring hex"></div><div class="h hex" style="background:${c.hex}"></div>`;
     b.onclick = () => { picked = c.id; $("err").textContent = ""; renderJoin(hex, mine); };
     box.appendChild(b);
   }
   const inGame = state.phase !== "lobby" && !mine;
-  $("go").textContent = mine ? "Зберегти" : NET.isHost ? "Далі →" : "Увійти в гру";
+  $("go").textContent = tr(mine ? "Зберегти" : NET.isHost ? "Далі →" : "Увійти в гру");
   $("lhint").hidden = true;
   $("go").disabled = inGame || busy;
-  if (inGame) $("err").textContent = "Гра вже йде — зачекай наступної";
-  else if ($("err").textContent === "Гра вже йде — зачекай наступної") $("err").textContent = "";
+  if (inGame) $("err").textContent = tr("Гра вже йде — зачекай наступної");
+  else if ($("err").textContent === tr("Гра вже йде — зачекай наступної")) $("err").textContent = "";
   show("join");
 }
 
@@ -990,13 +994,13 @@ function toast(text, bad) {
 }
 function effectText(lm) {
   const who = pname(lm.pid), e = lm.effect, parts = [];
-  if (lm.auto) parts.push(`⏱ Час вийшов — ${who}: випадкова карта`);
+  if (lm.auto) parts.push(tr("⏱ Час вийшов — {n}: випадкова карта", { n: who }));
   if (e) {
-    if (e.kind === "extra") parts.push(`⚡ ${who} ходить ще раз`);
-    if (e.kind === "swap") parts.push(`🔄 ${who} міняється картами з ${pname(e.with)}`);
-    if (e.kind === "thief") parts.push(`🦝 ${who} поцупив карту в ${pname(e.from)}`);
-    if (e.kind === "skip") parts.push(`⏸️ ${pname(e.who)} пропускає хід`);
-    if (e.kind === "portal") parts.push(`🌀 ${who} телепортується`);
+    if (e.kind === "extra") parts.push(tr("⚡ {n} ходить ще раз", { n: who }));
+    if (e.kind === "swap") parts.push(tr("🔄 {a} міняється картами з {b}", { a: who, b: pname(e.with) }));
+    if (e.kind === "thief") parts.push(tr("🦝 {a} поцупив карту в {b}", { a: who, b: pname(e.from) }));
+    if (e.kind === "skip") parts.push(tr("⏸️ {n} пропускає хід", { n: pname(e.who) }));
+    if (e.kind === "portal") parts.push(tr("🌀 {n} телепортується", { n: who }));
   }
   return parts.join(" · ");
 }
@@ -1015,7 +1019,7 @@ function announce() {
   const txt = effectText(lm);
   if (txt) setTimeout(() => toast(txt, lm.auto), 200);
   if (lm.died.length) setTimeout(() => {
-    toast("💥 Вибув: " + lm.died.map(pname).join(", "), true);
+    toast(tr("💥 Вибув: {n}", { n: lm.died.map(pname).join(", ") }), true);
     if (sound) sfx.out();
     if (lm.died.includes(me.id)) vibrate([100, 60, 200]);
   }, moveDur(lm) + (txt ? 1400 : 0));
@@ -1033,13 +1037,13 @@ function renderShare() {
 }
 async function copyRoom() {
   const url = state && state.joinUrl; if (!url) return;
-  try { await navigator.clipboard.writeText(url); toast("📋 Посилання скопійовано"); }
-  catch (e) { window.prompt("Скопіюй посилання:", url); }
+  try { await navigator.clipboard.writeText(url); toast(tr("📋 Посилання скопійовано")); }
+  catch (e) { window.prompt(tr("Скопіюй посилання:"), url); }
 }
 async function shareRoom() {
   const url = state && state.joinUrl; if (!url) return;
   if (navigator.share) {
-    try { await navigator.share({ title: "Hexaland", text: `Заходь у Hexaland! Код кімнати: ${state.room}`, url }); return; }
+    try { await navigator.share({ title: "Hexaland", text: tr("Заходь у Hexaland! Код кімнати: {n}", { n: state.room }), url }); return; }
     catch (e) { if (e && e.name === "AbortError") return; }
   }
   copyRoom();
@@ -1050,7 +1054,7 @@ $("copyBtn").onclick = copyRoom;
 // ---------- панель хоста (коли кімнату створено з телефона)
 async function hostApi(path, body) {
   const r = await post(path, body || {});
-  if (!r.ok && r.error) { if (state && state.phase === "lobby") $("hint").textContent = r.error; else toast(r.error, true); }
+  if (!r.ok && r.error) { if (state && state.phase === "lobby") $("hint").textContent = tr(r.error); else toast(tr(r.error), true); }
   return r;
 }
 const setting = (key, value) => hostApi("/api/settings", { key, value });
@@ -1066,24 +1070,24 @@ function renderHost() {
   $("hostp").hidden = !NET.isHost;
   if (!NET.isHost) return;
   const st = state.settings, o = state.options;
-  seg("modes", o.modes.map(m => [m.id, `<span class="ic">${m.icon}</span>${m.name}`]), st.mode, v => setting("mode", v));
-  $("mdesc").textContent = (o.modes.find(m => m.id === st.mode) || {}).desc || "";
-  seg("sizes", o.sizes.map(s => [s.id, `${s.name}<small>${s.cells} сот</small>`]), st.size, v => setting("size", v));
-  seg("timers", o.timers.map(t => [t, t ? `<span class="ic">⏱</span>${t} с` : `<span class="ic">∞</span>Без`]), st.timer, v => setting("timer", v));
+  seg("modes", o.modes.map(m => [m.id, `<span class="ic">${m.icon}</span>${tr(m.name)}`]), st.mode, v => setting("mode", v));
+  $("mdesc").textContent = tr((o.modes.find(m => m.id === st.mode) || {}).desc || "");
+  seg("sizes", o.sizes.map(s => [s.id, `${tr(s.name)}<small>${tr("{n} сот", { n: s.cells })}</small>`]), st.size, v => setting("size", v));
+  seg("timers", o.timers.map(t => [t, t ? `<span class="ic">⏱</span>${tr("{n} с", { n: t })}` : `<span class="ic">∞</span>${tr("Без")}`]), st.timer, v => setting("timer", v));
   const sp = $("spAll"); sp.innerHTML = "";
   for (const s of o.specials) {
     const on = st.specials.includes(s.id), b = document.createElement("button");
-    b.className = "sp" + (on ? " on" : ""); b.title = s.desc;
+    b.className = "sp" + (on ? " on" : ""); b.title = tr(s.desc);
     b.innerHTML = `<span class="ic">${s.icon}</span><span class="nm"></span>`;
-    b.querySelector(".nm").textContent = s.name;
-    b.onclick = () => { setting("special", { id: s.id, on: !on }); toast(`${s.icon} ${s.name}: ${s.desc}`); };
+    b.querySelector(".nm").textContent = tr(s.name);
+    b.onclick = () => { setting("special", { id: s.id, on: !on }); toast(`${s.icon} ${tr(s.name)}: ${tr(s.desc)}`); };
     sp.appendChild(b);
   }
   const n = state.players.length, team = st.mode === "team";
   const teamsOk = !team || new Set(state.players.map(p => p.team)).size === 2;
   $("startBtn").disabled = n < state.minPlayers || !teamsOk;
-  $("hint").textContent = n < state.minPlayers ? `Потрібно щонайменше ${state.minPlayers} гравці (зараз ${n}). Поділись кімнатою або додай бота`
-    : !teamsOk ? "У кожній команді має бути хоча б один гравець" : `Гравців: ${n} з ${state.maxPlayers}`;
+  $("hint").textContent = n < state.minPlayers ? tr("Потрібно щонайменше {a} гравці (зараз {b}). Поділись кімнатою або додай бота", { a: state.minPlayers, b: n })
+    : !teamsOk ? tr("У кожній команді має бути хоча б один гравець") : tr("Гравців: {a} з {b}", { a: n, b: state.maxPlayers });
 }
 $("startBtn").onclick = () => hostApi("/api/start");
 $("addBot").onclick = () => hostApi("/api/addbot");
@@ -1095,15 +1099,18 @@ $("hmBtn").onclick = e => { e.stopPropagation(); hm.classList.toggle("open"); };
 document.addEventListener("click", e => { if (!$("hmenu").contains(e.target)) hm.classList.remove("open"); });
 $("hmAgain").onclick = () => {
   hm.classList.remove("open");
-  if (state.phase === "over" || confirm("Почати нову гру з тими самими гравцями? Поточна партія завершиться.")) hostApi("/api/start");
+  if (state.phase === "over" || confirm(tr("Почати нову гру з тими самими гравцями? Поточна партія завершиться."))) hostApi("/api/start");
 };
 $("hmLobby").onclick = () => {
   hm.classList.remove("open");
-  if (state.phase === "over" || confirm("Повернутися в лобі? Поточна партія завершиться.")) hostApi("/api/lobby");
+  if (state.phase === "over" || confirm(tr("Повернутися в лобі? Поточна партія завершиться."))) hostApi("/api/lobby");
 };
 $("hmShare").onclick = () => { hm.classList.remove("open"); shareRoom(); };
 
-$("localNote").textContent = NET.isHost ? `👑 Ти створюєш кімнату ${NET.room}. Введи своє ім'я` : NET.room ? `Кімната ${NET.room}` : "";
+function localNote() { $("localNote").textContent = NET.isHost ? tr("👑 Ти створюєш кімнату {n}. Введи своє ім'я", { n: NET.room }) : NET.room ? tr("Кімната {n}", { n: NET.room }) : ""; }
+localNote();
+$("langrow").appendChild(I18N.switcher());
+I18N.onChange(() => { localNote(); setConn(connOk); if (state) render(); });
 connect();
 
 </script>

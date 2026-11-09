@@ -32,6 +32,7 @@
     { id: "purple", name: "Фіолетовий", hex: "#8e24aa" }, { id: "pink", name: "Рожевий", hex: "#ec407a" },
   ];
   const BOT_NAMES = ["Біп", "Буп", "Ґвинтик", "Чіп", "Байт", "Піксель", "Робі", "Тостер"];
+  const BOT_NAMES_CS = ["Píp", "Bup", "Šroubek", "Čip", "Bajt", "Pixel", "Robík", "Toustovač"];
   const DIRS = [[1, 0], [0, 1], [-1, 1], [-1, 0], [0, -1], [1, -1]];
   const SQRT3 = Math.sqrt(3);
 
@@ -213,7 +214,8 @@
       const used = new Set([...this.players.values()].map(p => p.color)), names = new Set([...this.players.values()].map(p => p.name));
       const color = COLORS.find(c => !used.has(c.id));
       if (!color) return err("Стіл заповнений");
-      const name = "🤖 " + (BOT_NAMES.find(n => !names.has("🤖 " + n)) || "Бот");
+      const list = g.I18N && g.I18N.lang === "cs" ? BOT_NAMES_CS : BOT_NAMES;
+      const name = "🤖 " + (list.find(n => !names.has("🤖 " + n)) || "Bot");
       return this.join(null, name, color.id, true);
     }
     remove(pid) {

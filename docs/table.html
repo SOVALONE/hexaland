@@ -250,7 +250,7 @@
       <div class="join">
         <div class="qrbox"><div class="qr" id="qr"></div></div>
         <div class="jt">
-          <div class="lbl"><b>Скануй QR камерою телефона</b><br>або відкрий сайт і введи код кімнати:</div>
+          <div class="lbl"><b>Скануй QR камерою телефона</b><br><span>або відкрий сайт і введи код кімнати:</span></div>
           <div class="url" id="url">…</div>
           <div class="site" id="site"></div>
         </div>
@@ -293,7 +293,7 @@
   </div>
 </section>
 
-<div class="tools">
+<div class="tools" id="tools">
   <button class="iconbtn" id="fsBtn" title="На весь екран">
     <svg viewBox="0 0 24 24" id="fsIcon"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
   </button>
@@ -315,6 +315,7 @@
 <div class="conn" id="conn">з'єднання…</div>
 <div class="roomcode" id="roomcode"></div>
 
+<script src="i18n.js"></script>
 <script src="vendor/qrcode.js"></script>
 <script src="p2p.js"></script>
 <script src="net.js"></script>
@@ -331,11 +332,11 @@ const pname = id => (state.players.find(p => p.id === id) || {}).name || "?";
 // ---------- зв'язок ----------
 let netStatus = "connecting";
 const STATUS_TEXT = { connecting: "○ відкриваємо кімнату…", online: "● кімната відкрита", reconnecting: "○ немає інтернету — перепідключення…",
-  taken: "✕ кімната вже відкрита деінде", error: "✕ помилка мережі" };
+  taken: "✕ кімната вже відкрита деінде", error: "✕ помилка мережі" };   // перекладаються через tr()
 function connText() {
   const c = $("conn");
-  c.textContent = (STATUS_TEXT[netStatus] || netStatus) + (state && state.spectators && state.phase !== "lobby" ? ` · 👀 глядачів: ${state.spectators}` : "")
-    + (HX.keepAwake.mode ? " · 🔆 екран не згасне" : "");
+  c.textContent = tr(STATUS_TEXT[netStatus] || netStatus) + (state && state.spectators && state.phase !== "lobby" ? tr(" · 👀 глядачів: {n}", { n: state.spectators }) : "")
+    + (HX.keepAwake.mode ? tr(" · 🔆 екран не згасне") : "");
   c.className = "conn" + (netStatus === "online" ? "" : " bad");
 }
 function connect() {
@@ -346,11 +347,11 @@ function connect() {
     onReact: r => showReaction(r),
   });
   if (NET.hostInfo) NET.hostInfo.onStatus(s => { netStatus = s; connText(); });
-  $("roomcode").textContent = NET.room ? "КІМНАТА " + NET.room : "";
+  $("roomcode").textContent = NET.room ? tr("КІМНАТА {n}", { n: NET.room }) : "";
 }
 async function api(path, body) {
   const d = await NET.post(path, body || {});
-  if (!d.ok && d.error) { $("hint").textContent = d.error; if (state && state.phase !== "lobby") toast(d.error, true); }
+  if (!d.ok && d.error) { $("hint").textContent = tr(d.error); if (state && state.phase !== "lobby") toast(tr(d.error), true); }
 }
 $("start").onclick = () => api("/api/start");
 $("addBot").onclick = () => api("/api/addbot");
@@ -366,7 +367,7 @@ function toggleFs() {
 fsDoc.addEventListener("fullscreenchange", () => {
   const on = !!fsDoc.fullscreenElement;
   $("fsIcon").firstChild.setAttribute("d", on ? FS_OFF : FS_ON);
-  $("fsBtn").title = $("mFsT").textContent = on ? "Вийти з повного екрана" : "На весь екран";
+  $("fsBtn").title = $("mFsT").textContent = tr(on ? "Вийти з повного екрана" : "На весь екран");
 });
 $("fsBtn").onclick = toggleFs;
 document.addEventListener("keydown", e => { if (e.key === "F11") { e.preventDefault(); toggleFs(); } });
@@ -383,7 +384,7 @@ menuAct("mStart", () => api("/api/start"));
 menuAct("mRestart", () => api("/api/start"));
 menuAct("mBack", () => api("/api/lobby"));
 menuAct("mReload", () => location.reload());
-function soundLabel() { $("mSoundT").textContent = "Звук: " + (sfx.on ? "увімкнено" : "вимкнено"); }
+function soundLabel() { $("mSoundT").textContent = tr("Звук: {s}", { s: tr(sfx.on ? "увімкнено" : "вимкнено") }); }
 $("mSound").onclick = () => { sfx.on = !sfx.on; soundLabel(); sfx.pop(); };
 soundLabel();
 function updateMenu() {
@@ -429,18 +430,18 @@ function renderLobby() {
     d.className = "pcard" + (p.online ? "" : " off");
     d.dataset.pid = p.id;
     d.innerHTML = `<div class="chip hex" style="background:${colorHex[p.color]}"></div>
-      <div class="nm"></div><div class="st">${p.bot ? "бот" : p.online ? "готовий" : "відключився…"}</div>`;
+      <div class="nm"></div><div class="st">${tr(p.bot ? "бот" : p.online ? "готовий" : "відключився…")}</div>`;
     d.querySelector(".nm").textContent = p.name;
     if (NET.local) {
       const k = document.createElement("button");
-      k.className = "kick"; k.textContent = "✕"; k.title = "Прибрати";
+      k.className = "kick"; k.textContent = "✕"; k.title = tr("Прибрати");
       k.onclick = () => api("/api/kick", { pid: p.id });
       d.appendChild(k);
     }
     if (team) {
       const t = teams[p.team], b = document.createElement("button");
-      b.className = "teamb"; b.style.borderColor = t.hex; b.style.color = t.hex; b.textContent = `${t.icon} ${t.name}`;
-      b.title = "Натисни, щоб перекинути в іншу команду";
+      b.className = "teamb"; b.style.borderColor = t.hex; b.style.color = t.hex; b.textContent = `${t.icon} ${tr(t.name)}`;
+      b.title = tr("Натисни, щоб перекинути в іншу команду");
       b.onclick = () => api("/api/hostteam", { pid: p.id, team: 1 - p.team });
       d.appendChild(b);
     }
@@ -450,7 +451,7 @@ function renderLobby() {
   for (let i = 0; i < empty; i++) {
     const d = document.createElement("div");
     d.className = "pcard empty";
-    d.innerHTML = `<div class="chip hex"></div><div class="nm">вільне місце</div>`;
+    d.innerHTML = `<div class="chip hex"></div><div class="nm">${tr("вільне місце")}</div>`;
     box.appendChild(d);
   }
   // режими
@@ -458,11 +459,11 @@ function renderLobby() {
   for (const m of state.options.modes) {
     const b = document.createElement("button");
     b.className = "opt" + (m.id === st.mode ? " sel" : "");
-    b.innerHTML = `<span class="ic">${m.icon}</span>${m.name}`;
+    b.innerHTML = `<span class="ic">${m.icon}</span>${tr(m.name)}`;
     b.onclick = () => setting("mode", m.id);
     mb.appendChild(b);
   }
-  $("mdesc").textContent = (state.options.modes.find(m => m.id === st.mode) || {}).desc || "";
+  $("mdesc").textContent = tr((state.options.modes.find(m => m.id === st.mode) || {}).desc || "");
   // розмір поля
   const sb = $("sizes"); sb.innerHTML = "";
   const maxR = Math.max(...state.options.sizes.map(s => s.radius)), ms = 4, ext = ms * (HX.SQ3 * maxR + 1);
@@ -475,7 +476,7 @@ function renderLobby() {
       const [x, y] = HX.cellXY(q, r, ms);
       HX.el("polygon", { points: HX.hexPoints(x, y, ms) }, svg);
     }
-    b.insertAdjacentHTML("beforeend", `${s.name}<small>${s.cells} сот</small>`);
+    b.insertAdjacentHTML("beforeend", `${tr(s.name)}<small>${tr("{n} сот", { n: s.cells })}</small>`);
     b.onclick = () => setting("size", s.id);
     sb.appendChild(b);
   }
@@ -484,7 +485,7 @@ function renderLobby() {
   for (const t of state.options.timers) {
     const b = document.createElement("button");
     b.className = "opt" + (t === st.timer ? " sel" : "");
-    b.innerHTML = t ? `<span class="ic">⏱</span>${t} с` : `<span class="ic">∞</span>Без`;
+    b.innerHTML = t ? `<span class="ic">⏱</span>${tr("{n} с", { n: t })}` : `<span class="ic">∞</span>${tr("Без")}`;
     b.onclick = () => setting("timer", t);
     tb.appendChild(b);
   }
@@ -493,8 +494,8 @@ function renderLobby() {
     const g = $(id); g.innerHTML = "";
     for (const s of state.options.specials.filter(s => s.main === main)) {
       const on = st.specials.includes(s.id), b = document.createElement("button");
-      b.className = "sp" + (on ? " on" : ""); b.title = s.desc;
-      b.innerHTML = `<span class="ic">${s.icon}</span><span class="nm">${s.name}</span><span class="sw"></span>`;
+      b.className = "sp" + (on ? " on" : ""); b.title = tr(s.desc);
+      b.innerHTML = `<span class="ic">${s.icon}</span><span class="nm">${tr(s.name)}</span><span class="sw"></span>`;
       b.onclick = () => setting("special", { id: s.id, on: !on });
       g.appendChild(b);
     }
@@ -502,9 +503,9 @@ function renderLobby() {
   const n = state.players.length;
   const teamsOk = !team || new Set(state.players.map(p => p.team)).size === 2;
   $("start").disabled = n < state.minPlayers || !teamsOk;
-  $("hint").textContent = n < state.minPlayers ? `Потрібно щонайменше ${state.minPlayers} гравці (зараз ${n})`
-    : !teamsOk ? "У кожній команді має бути хоча б один гравець"
-    : `Гравців: ${n} з ${state.maxPlayers}`;
+  $("hint").textContent = n < state.minPlayers ? tr("Потрібно щонайменше {a} гравці (зараз {b})", { a: state.minPlayers, b: n })
+    : !teamsOk ? tr("У кожній команді має бути хоча б один гравець")
+    : tr("Гравців: {a} з {b}", { a: n, b: state.maxPlayers });
 }
 
 // ---------- кубик: хто ходить першим ----------
@@ -518,9 +519,9 @@ function renderDice() {
   $("diceov").classList.toggle("show", !!on);
   if (!on) { shownRolls = {}; return; }
   const T = $("diceT");
-  if (d.first) T.innerHTML = `Першим ходить <b></b>!`, T.querySelector("b").textContent = pname(d.first);
-  else if (d.round > 1) T.textContent = `Нічия на ${d.tieValue}! Перекидають: ${d.tied.map(pname).join(", ")}`;
-  else T.textContent = "Кидайте кубик на телефонах — хто ходить першим?";
+  if (d.first) T.innerHTML = tr("Першим ходить <b></b>!"), T.querySelector("b").textContent = pname(d.first);
+  else if (d.round > 1) T.textContent = tr("Нічия на {a}! Перекидають: {b}", { a: d.tieValue, b: d.tied.map(pname).join(", ") });
+  else T.textContent = tr("Кидайте кубик на телефонах — хто ходить першим?");
   const row = $("dicerow"); row.innerHTML = "";
   let newRoll = false;
   for (const p of state.players) {
@@ -533,7 +534,7 @@ function renderDice() {
     slot.dataset.pid = p.id;
     slot.innerHTML = `<div class="die${waiting ? " rolling" : (shownRolls[p.id] !== key ? " pop" : "")}">${HX.dieFace(v || 1)}</div>
       <div class="nm"><div class="chip hex" style="background:${colorHex[p.color]}"></div><span></span></div>
-      <div class="lb">${d.first === p.id ? "ходить першим" : waiting ? "кидає…" : hist.length > 1 ? "кидки: " + hist.join(" → ") : ""}</div>`;
+      <div class="lb">${d.first === p.id ? tr("ходить першим") : waiting ? tr("кидає…") : hist.length > 1 ? tr("кидки: {n}", { n: hist.join(" → ") }) : ""}</div>`;
     slot.querySelector(".nm span").textContent = p.name;
     if (!waiting && shownRolls[p.id] !== key) { newRoll = true; shownRolls[p.id] = key; }
     row.appendChild(slot);
@@ -612,13 +613,13 @@ function toast(text, bad) {
 
 function effectText(lm) {
   const who = pname(lm.pid), e = lm.effect, parts = [];
-  if (lm.auto) parts.push(`⏱ Час вийшов — ${who}: випадкова карта`);
+  if (lm.auto) parts.push(tr("⏱ Час вийшов — {n}: випадкова карта", { n: who }));
   if (e) {
-    if (e.kind === "extra") parts.push(`⚡ ${who} ходить ще раз`);
-    if (e.kind === "swap") parts.push(`🔄 ${who} міняється картами з ${pname(e.with)}`);
-    if (e.kind === "thief") parts.push(`🦝 ${who} поцупив карту в ${pname(e.from)}`);
-    if (e.kind === "skip") parts.push(`⏸️ ${pname(e.who)} пропускає хід`);
-    if (e.kind === "portal") parts.push(`🌀 ${who} телепортується`);
+    if (e.kind === "extra") parts.push(tr("⚡ {n} ходить ще раз", { n: who }));
+    if (e.kind === "swap") parts.push(tr("🔄 {a} міняється картами з {b}", { a: who, b: pname(e.with) }));
+    if (e.kind === "thief") parts.push(tr("🦝 {a} поцупив карту в {b}", { a: who, b: pname(e.from) }));
+    if (e.kind === "skip") parts.push(tr("⏸️ {n} пропускає хід", { n: pname(e.who) }));
+    if (e.kind === "portal") parts.push(tr("🌀 {n} телепортується", { n: who }));
   }
   return parts.join("  ·  ");
 }
@@ -702,7 +703,7 @@ function renderGame() {
     if (txt) setTimeout(() => toast(txt, lm.auto), 200);
     if (lm.died.length) {
       setTimeout(() => {
-        toast("💥 Вибув: " + lm.died.map(pname).join(", "), true);
+        toast(tr("💥 Вибув: {n}", { n: lm.died.map(pname).join(", ") }), true);
         sfx.out();
         const b = $("board"); b.classList.remove("shake"); void b.getBoundingClientRect(); b.classList.add("shake");
       }, animMs + (txt ? 1200 : 0));
@@ -714,8 +715,8 @@ function renderGame() {
   lastTurnKey = turnKey;
 
   // верхня панель
-  $("sub").innerHTML = state.phase === "over" ? "Гру завершено"
-    : `${(state.options.modes.find(m => m.id === mode) || {}).icon || ""} ${(state.options.modes.find(m => m.id === mode) || {}).name || ""}<br>Колода: ${state.deckCount}`
+  $("sub").innerHTML = state.phase === "over" ? tr("Гру завершено")
+    : `${(state.options.modes.find(m => m.id === mode) || {}).icon || ""} ${tr((state.options.modes.find(m => m.id === mode) || {}).name || "")}<br>${tr("Колода: {n}", { n: state.deckCount })}`
       + (state.spectators ? ` · 👀 ${state.spectators}` : "");
   const list = $("plist"); list.innerHTML = "";
   for (const p of state.players) {
@@ -723,7 +724,7 @@ function renderGame() {
     const isTurn = p.id === state.turn;
     d.className = "prow" + (p.online ? "" : " off") + (p.alive ? "" : " dead") + (isTurn ? " turn" : "");
     d.dataset.pid = p.id;
-    const tag = !p.alive ? "вибув" : isTurn ? `ходить ▸<span class="secs"></span>` : `${p.handCount} карти`;
+    const tag = !p.alive ? tr("вибув") : isTurn ? `${tr("ходить ▸")}<span class="secs"></span>` : tr("{n} карти", { n: p.handCount });
     d.innerHTML = (mode === "team" ? `<span class="tm">${teams[p.team].icon}</span>` : "")
       + `<div class="chip hex" style="background:${colorHex[p.color]}"></div><div class="nm"></div>`
       + (mode === "points" ? `<div class="sc">⭐ ${p.score}</div>` : "")
@@ -746,10 +747,10 @@ function renderWin() {
   const W = $("winW"); W.innerHTML = "";
   if (mode === "team" && state.winTeam != null) {
     const t = teams[state.winTeam];
-    $("winT").textContent = "Перемогла команда";
-    W.innerHTML = `<span style="color:${t.hex}">${t.icon} ${t.name}</span>`;
+    $("winT").textContent = tr("Перемогла команда");
+    W.innerHTML = `<span style="color:${t.hex}">${t.icon} ${tr(t.name)}</span>`;
   } else {
-    $("winT").textContent = !w.length ? "Нічия — ніхто не вижив" : w.length > 1 ? "Нічия між" : "Переможець";
+    $("winT").textContent = tr(!w.length ? "Нічия — ніхто не вижив" : w.length > 1 ? "Нічия між" : "Переможець");
     w.forEach((p, i) => {
       const s = document.createElement("span");
       s.style.color = colorHex[p.color]; s.textContent = (i ? ", " : "") + p.name;
@@ -761,7 +762,7 @@ function renderWin() {
     : mode === "team" ? [...state.players].sort((a, b) => a.team - b.team) : [];
   for (const p of rows) {
     const d = document.createElement("div");
-    d.innerHTML = `<div class="chip hex" style="background:${colorHex[p.color]}"></div><span></span><b>${mode === "points" ? "⭐ " + p.score : teams[p.team].icon + (p.alive ? " вижив" : " вибув")}</b>`;
+    d.innerHTML = `<div class="chip hex" style="background:${colorHex[p.color]}"></div><span></span><b>${mode === "points" ? "⭐ " + p.score : teams[p.team].icon + tr(p.alive ? " вижив" : " вибув")}</b>`;
     d.querySelector("span").textContent = p.name;
     sc.appendChild(d);
   }
@@ -775,7 +776,7 @@ function updateTimer() {
   bar.style.width = (100 * left / (total * 1000)) + "%";
   bar.classList.toggle("low", secs <= 5);
   const row = document.querySelector(".prow.turn");
-  if (row) { row.classList.toggle("low", secs <= 5); const s = row.querySelector(".secs"); if (s) s.textContent = " " + secs + " с"; }
+  if (row) { row.classList.toggle("low", secs <= 5); const s = row.querySelector(".secs"); if (s) s.textContent = " " + tr("{n} с", { n: secs }); }
   if (secs <= 5 && secs > 0 && lastTick !== secs) { lastTick = secs; sfx.tick(); }
 }
 setInterval(updateTimer, 250);
@@ -817,6 +818,8 @@ function confetti() {
 // екран столу не гасне (на ПК працює Wake Lock — потрібен один клік по сторінці)
 HX.keepAwake.on();
 HX.keepAwake.onChange(() => connText());
+$("tools").insertBefore(I18N.switcher(), $("tools").firstChild);
+I18N.onChange(() => { connText(); soundLabel(); $("roomcode").textContent = NET.room ? tr("КІМНАТА {n}", { n: NET.room }) : ""; if (state) { shownSeq = state.lastMove ? state.lastMove.seq : null; render(); } });
 document.addEventListener("click", () => { if (!HX.keepAwake.mode) HX.keepAwake.on(); }, true);
 
 connect();

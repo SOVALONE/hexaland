@@ -11,6 +11,7 @@
 <meta property="og:image" content="assets/logo-512.png">
 <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/icon-180.png">
+<script src="i18n.js"></script>
 <script>
   // посилання-запрошення ?r=КОД веде одразу до кімнати
   (function () {
@@ -61,6 +62,7 @@
   summary { cursor: pointer; font-weight: 700; font-size: 18px; }
   details ul { color: var(--muted); line-height: 1.55; padding-left: 20px; margin: 12px 0 0; }
   details li b { color: var(--text); }
+  .langrow { display: flex; justify-content: flex-end; }
   .foot { text-align: center; color: var(--muted); font-size: 13px; margin-top: 26px; }
   .resume { display: none; margin: 0 0 16px; padding: 14px 18px; border-radius: 16px; background: #1f3a1f; border: 2px solid #3f7a3f;
     color: #c9f2c9; text-decoration: none; font-weight: 700; text-align: center; }
@@ -73,8 +75,9 @@
     <path d="M34.64 0 69.28 20v40L34.64 80 0 60V20Z M34.64 80v40" fill="none" stroke="#f2b43c" stroke-width="2"/>
   </pattern></defs><rect width="100%" height="100%" fill="url(#comb)"/></svg>
 <div class="wrap">
+  <div class="langrow" id="langrow"></div>
   <div class="logorow"><img src="assets/logo.svg" alt=""><h1>HEXALAND</h1></div>
-  <p class="tag">Клади карти з лініями, веди свою фішку і не вилети за край поля.<br>Від 2 до 8 гравців, через інтернет, без реєстрації.</p>
+  <p class="tag" data-th>Клади карти з лініями, веди свою фішку і не вилети за край поля.<br>Від 2 до 8 гравців, через інтернет, без реєстрації.</p>
 
   <a class="resume" id="resume" href="#"></a>
 
@@ -108,9 +111,9 @@
     <ul>
       <li>У кожного 3 карти з лініями. Клади карту перед своєю фішкою — і фішка поїде по лінії.</li>
       <li>Хто вилетів за край поля — вибуває. Дві фішки зіткнулись — вибувають обидві.</li>
-      <li>Перемагає той, хто залишився останнім. Є ще <b>командна</b> гра і гра <b>на очки</b>.</li>
+      <li data-th>Перемагає той, хто залишився останнім. Є ще <b>командна</b> гра і гра <b>на очки</b>.</li>
       <li>Спецкарти: ⚡ ще хід, 🔄 обмін, ↩️ відбивач, 🌀 телепорт та інші.</li>
-      <li>Хто зайде під час гри — дивиться як <b>глядач</b> і грає з наступної партії.</li>
+      <li data-th>Хто зайде під час гри — дивиться як <b>глядач</b> і грає з наступної партії.</li>
       <li>Пристрій, який створив кімнату, і є «сервером»: не закривай на ньому вкладку, поки йде гра.</li>
     </ul>
   </details>
@@ -126,20 +129,23 @@ $("mPhone").onclick = () => { location.href = "host.html?as=phone"; };
 
 const norm = s => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 $("code").addEventListener("input", () => { $("code").value = norm($("code").value); $("go").disabled = $("code").value.length < 4; $("err").textContent = ""; });
-const go = () => { const c = norm($("code").value); if (c.length < 4) { $("err").textContent = "Код має бути з 5 символів"; return; } location.href = "client.html?r=" + c; };
+const go = () => { const c = norm($("code").value); if (c.length < 4) { $("err").textContent = tr("Код має бути з 5 символів"); return; } location.href = "client.html?r=" + c; };
 $("go").onclick = go;
 $("code").addEventListener("keydown", e => { if (e.key === "Enter") go(); });
 
 // незавершена кімната на цьому пристрої — можна повернутися
-try {
+$("langrow").appendChild(I18N.switcher());
+function resume() { try {
   const s = JSON.parse(localStorage.getItem("hexaland-host") || "null");
   if (s && Date.now() - s.t < 3 * 3600e3 && s.snap && s.snap.players.length) {
     const r = $("resume");
-    r.textContent = `↩ Повернутися до своєї кімнати ${s.code} (${s.snap.players.length} гравц.)`;
+    r.textContent = tr("↩ Повернутися до своєї кімнати {a} ({b} гравц.)", { a: s.code, b: s.snap.players.length });
     r.href = `host.html?as=${s.kind}&code=${s.code}`;
     r.classList.add("show");
   }
-} catch (e) {}
+} catch (e) {} }
+resume();
+I18N.onChange(resume);
 </script>
 </body>
 </html>

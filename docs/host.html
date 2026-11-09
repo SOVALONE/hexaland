@@ -16,6 +16,7 @@
   .fail a { color: #f2b43c; font-weight: 700; }
 </style>
 <!-- рушій гри працює тут, на пристрої хоста -->
+<script src="i18n.js"></script>
 <script src="vendor/peerjs.min.js"></script>
 <script src="p2p.js"></script>
 <script src="engine.js"></script>
@@ -65,11 +66,11 @@
     HEXHOST.status = s; HEXHOST.info = info || "";
     listeners.forEach(fn => { try { fn(s, info || ""); } catch (e) {} });
     if (s === "taken") {
-      document.getElementById("failT").textContent = "Кімната " + code + " уже відкрита на іншому пристрої або вкладці.";
+      document.getElementById("failT").textContent = tr("Кімната {n} уже відкрита на іншому пристрої або вкладці.", { n: code });
       document.getElementById("fail").classList.add("show");
     }
     if (s === "error") {
-      document.getElementById("failT").textContent = info || "Не вдалося запустити кімнату.";
+      document.getElementById("failT").textContent = tr(info || "Не вдалося запустити кімнату.");
       document.getElementById("fail").classList.add("show");
     }
   });
